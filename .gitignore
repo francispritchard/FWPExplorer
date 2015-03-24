@@ -21,4 +21,7 @@
 __history
 profiling/*
 ArchiveZip.*
-
+DragDrop/*
+MediaInfo.pas
+readme.txt
+Zoom Player/*
