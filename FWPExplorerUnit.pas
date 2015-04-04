@@ -51,9 +51,10 @@ TYPE
     MainMenuFileClearBackupAToZDirectoryMenuItem: TMenuItem;
     MainMenuFileClearBackupNToZDirectoryMenuItem: TMenuItem;
     MainMenuFileClearCompareFileSizeDirectoryMenuItem: TMenuItem;
+    MainMenuFileClearImageViewDirectoryMenuItem: TMenuItem;
     MainMenuFileClearMove1DirectoryMenuItem: TMenuItem;
     MainMenuFileClearMove2DirectoryMenuItem: TMenuItem;
-    MainMenuFileDeleteOnAllDrives: TMenuItem;
+    MainMenuFileResetCheckedDirectoriesList: TMenuItem;
     MainMenuFileExit: TMenuItem;
     MainMenuFileMarkDeletedFilesOnBackupDrives: TMenuItem;
     MainMenuFileNew: TMenuItem;
@@ -91,6 +92,7 @@ TYPE
     TreeViewPopupMenu: TPopupMenu;
     TreeViewRenamePopup: TMenuItem;
     UserSetIncrement: TMaskEdit;
+    N2: TMenuItem;
     PROCEDURE ClearSnapsCheckBoxClick(Sender: TObject);
     PROCEDURE CompareFileSizeCheckBoxClick(Sender : TObject);
     PROCEDURE CompareFileSizeInDifferentDirectoryCheckBoxClick(Sender: TObject);
@@ -144,11 +146,11 @@ TYPE
     PROCEDURE MainMenuFileClearBackupDriveAndPathPopupMenuItemClick(Sender: TObject);
     PROCEDURE MainMenuFileClearBackupNToZDirectoryMenuItemClick(Sender: TObject);
     PROCEDURE MainMenuFileClearCompareFileSizeDirectoryMenuItemClick(Sender: TObject);
+    PROCEDURE MainMenuFileClearImageViewDirectoryMenuItemClick(Sender: TObject);
     PROCEDURE MainMenuFileClearMove1DirectoryMenuItemClick(Sender: TObject);
     PROCEDURE MainMenuFileClearMove2DirectoryMenuItemClick(Sender: TObject);
     PROCEDURE MainMenuFileClick(Sender: TObject);
-    PROCEDURE MainMenuFileDeleteOnAllDrivesClick(Sender: TObject);
-    PROCEDURE MainMenuFileDrawItem(Sender: TObject; ACanvas: TCanvas; ARect: TRect; Selected: Boolean);
+    PROCEDURE MainMenuFileResetCheckedDirectoriesListClick(Sender: TObject);
     PROCEDURE MainMenuFileExitClick(Sender: TObject);
     PROCEDURE MainMenuFileMarkDeletedFilesOnBackupDrivesClick(Sender: TObject);
     PROCEDURE MainMenuFileNewDirectoryClick(Sender: TObject);
@@ -193,39 +195,11 @@ TYPE
 
   FileType = (Text_File, VideoFile, ImageFile, DatabaseFile, UnspecifiedFileType);
 
-PROCEDURE ArchiveFile(OUT OK : Boolean);
-{ Archive a file to a given directory }
-
-PROCEDURE CloseOutputFile(VAR OutputFile : Text; Filename : String);
+PROCEDURE CloseOutputFile(VAR OutputFile : Text; Filename : String); External 'ListFilesDLLProject.dll'
 { Close an output file, capturing the error message if any }
 
-PROCEDURE Debug(DebugStr : String);
-{ Write an error message to a given file }
-
-FUNCTION DeleteFilePermanently(TempFileName : String) : Boolean;
-{ Delete a file without sending it to the Recycle Bin }
-
-PROCEDURE ExecuteClick(FileName : String);
-{ Deals with a mouse click }
-
-PROCEDURE FileNameNumbersEditKeyPress(VAR Key: Char);
-{ Only permits numeric key presses in the lower edit box }
-
-FUNCTION FileRenameProc{2}(NewFileName : String) : Boolean; Overload;
-{ Main routine for file renaming }
-
-//FUNCTION FileTypeSuffixFound{1}(TempFileName : String) : Boolean; Overload;
-//FUNCTION FileTypeSuffixFound{2}(TempFileName : String; OUT SuffixFoundStr : String) : Boolean; Overload;
-//FUNCTION FileTypeSuffixFound{3}(TempFileName : String; OUT SuffixPos, SuffixLength : Integer) : Boolean; Overload;
-FUNCTION FileTypeSuffixFound{4}(TempFileName : String; SuffixToFind : String; OUT SuffixPos, SuffixLength : Integer) : Boolean; Overload;
-FUNCTION FileTypeSuffixFound{5}(TempFileName : String; OUT TypeOfFile : FileType) : Boolean; Overload;
-//FUNCTION FileTypeSuffixFound{6}(TempFileName : String; OUT FileNameWithoutSuffix : String; OUT TypeOfFile : FileType) : Boolean; Overload;
-
-FUNCTION GetFileNumberSuffixFromSnapFile(FileName : String; OUT NumberStr : String) : Boolean;
-{ Return the number suffix (if any) found in an associated snap file }
-
-PROCEDURE InitialiseSelectedFileVariables;
-{ Initalisation }
+FUNCTION FileTypeSuffixFound{2}(TempFileName : String; SuffixToFind : String; OUT SuffixPos, SuffixLength : Integer) : Boolean; Overload;
+FUNCTION FileTypeSuffixFound{3}(TempFileName : String; OUT TypeOfFile : FileType) : Boolean; Overload;
 
 FUNCTION IsDirectory(Attr : Integer) : Boolean;
 { Return whether a given attribute indicates a directory }
@@ -239,37 +213,21 @@ FUNCTION IsProgramRunning(ProgramName : String) : Boolean; External 'ListFilesDL
 PROCEDURE ListFiles{1}; Overload;
 { List all the files in the ListView }
 
-PROCEDURE ListFiles{2}(ForceListingFlag : Boolean);  Overload;
-{ List all the files in the ListView  - force the listing to be done from scratch if ForceListing is true }
-
-PROCEDURE ListViewColumnSort(Column : Integer; OUT CaptionStr : String);
-{ Sort the list view by the given column }
-
 PROCEDURE MakeSound;
 { Just goes beep, but enables a breakpoint to be set to catch beeps! }
 
-PROCEDURE MoveFile(DirectoryNum : Integer; OUT OK : Boolean);
-{ Move a file to one of two directories }
-
-PROCEDURE OpenListViewEditPanel;
-{ Opens an edit panel for file renaming }
-
-FUNCTION OpenOutputFileOK(VAR OutputFilename : Text; Filename : String; OUT ErrorMsg : String; AppendToFile : Boolean) : Boolean;
+FUNCTION OpenOutputFileOK(VAR OutputFilename : Text; Filename : String; OUT ErrorMsg : String; AppendToFile : Boolean) : Boolean; External 'ListFilesDLLProject.dll'
 { Open (and create if necessary) a file }
 
 PROCEDURE RemoveNumbersAndDeletes(SuppliedFileName : String; OUT FileNameWithOutNumbers, NumberStr : String);
 { Returns the filename minus any trailing numbers, and the numbers themselves. Also removes the letter "d" which indicates the file is to be deleted in due course. }
 
-FUNCTION SnapsFileNumberRename(FileName, NewNumberStr : String) : Boolean;
-{ Main routine for snaps file renaming }
-
-PROCEDURE StartDebug;
-{ Erase the debug file ready for more data  }
+FUNCTION SnapFileNumberRename(FileName, NewNumberStr : String) : Boolean;
+{ Main routine for snap file renaming }
 
 TYPE
   SelectedFile_Type = RECORD
                         SelectedFile_Name : String;
-                        SelectedFile_NameWithoutNumbers : String;
 
                         SelectedFile_IsImageFile : Boolean;
                         SelectedFile_IsTextFile : Boolean;
@@ -289,6 +247,7 @@ TYPE
 
   DirectoryOrFileType = (DirectoryType, NotDirectoryType);
   SortOrder = (Ascending, Descending);
+  SortTypes = (FileNameSort, SizeSort, DateSort, TypeSort, LastAccessSort);
 
 CONST
   DateColumn = 2;
@@ -314,6 +273,7 @@ VAR
   ClearKeyInKeyPress : Boolean = False;
   ColumnIndex : Integer = 0;
   ColumnSortOrder : ARRAY [0..4] OF SortOrder = (Ascending, Ascending, Ascending, Ascending, Ascending);
+  ColumnSortType : SortTypes;
   CompareAsterisksColumnPos : Integer;
   CompareFileNameColumnPos : Integer;
   CompareFileSize : Boolean = False;
@@ -331,7 +291,6 @@ VAR
   Editing : Boolean = False;
   F2Editing : Boolean = False;
   FileDeleted : Boolean = False;
-  FileDeleteOnAllDrivesMode : Boolean = False;
   FileMoved : Boolean = False;
   FileRenamed : Boolean = False;
   FileTypeColumnPos : Integer;
@@ -344,6 +303,8 @@ VAR
   HourGlassTimerTicks : Integer = 0;
   IconList : TStringList;
   IdleState : Boolean = True;
+  ImageViewDirectory : String;
+  InListFiles : Boolean = False;
   LastAccessTimeColumnPos : Integer;
   LastSelectedFilename : String;
   LastSelectedItemIndex : Integer;
@@ -365,6 +326,7 @@ VAR
   SaveFilesList : String = '';
   SaveFoldersList : String = '';
   SaveListViewColumnSortNumber : Integer = -1;
+  SaveSnapFilesList : String = '';
   SecondTimeListFilesCalled : Boolean = False;
   SelectedFileRec : SelectedFile_Type;
   ShowAttributesMode : Boolean = False;
@@ -420,6 +382,7 @@ CONST
   BackupAToMDirectoryStr = 'Backup A-M Directory';
   BackupAToZDirectoryStr = 'Backup Directory';
   BackupNToZDirectoryStr = 'Backup N-Z Directory';
+  ImageViewDirectoryStr = 'ImageView Directory';
   DirectoryNameForCompareFileSizeInDifferentDirectoryStr = 'Directory For Check File Size In Different Directory';
   MoveDirectory1Str = 'Move Directory 1';
   MoveDirectory2Str = 'Move Directory 2';
@@ -529,102 +492,11 @@ BEGIN
 //  CloseOutputFile(TestOutputFile, TestOutputFileName);
 END; { Debug }
 
-FUNCTION IOError(Filename : String; SaveIOResult : Integer; OUT ErrorMsg : String) : Boolean;
-{ Returns the IO error message }
-BEGIN
-  IF SaveIOResult = 0 THEN BEGIN
-    Result := False;
-    ErrorMsg := '';
-  END ELSE BEGIN
-    Result := True;
-    CASE SaveIOResult OF
-      2:
-        ErrorMsg := 'File: ' + Filename + ' not found';
-      3:
-        ErrorMsg := 'Path not found';
-      5:
-        ErrorMsg := 'File access denied - file ' + Filename + ' is a directory, or is read-only';
-      13:
-        ErrorMsg := 'Permission denied';
-      20:
-        ErrorMsg := 'is not a directory';
-      21:
-        ErrorMsg := 'is a directory';
-      32:
-        ErrorMsg := 'Sharing violation';
-      100:
-        ErrorMsg := 'Disk read error';
-      101:
-        ErrorMsg := 'Disk write error - is disk full?';
-      102:
-        ErrorMsg := 'File not assigned';
-      103:
-        ErrorMsg := 'File not open';
-      104:
-        ErrorMsg := 'File not open for input';
-      105:
-        ErrorMsg := 'File not open for output';
-    ELSE
-      ErrorMsg := 'I/O Error no.' + IntToStr(SaveIOResult);
-    END; { CASE}
-  END;
-END; { IOError }
-
 PROCEDURE MakeSound;
 { Just goes beep, but enables a breakpoint to be set to catch beeps! }
 BEGIN
   Beep;
 END; { MakeSound }
-
-{$O-}
-FUNCTION OpenOutputFileOK(VAR OutputFilename : Text; Filename : String; OUT ErrorMsg : String; AppendToFile : Boolean) : Boolean;
-{ Open (and create if necessary) a file }
-BEGIN
-  Result := False;
-
-  TRY
-    { If file exists, append to it, else create it }
-    {$I-}
-    AssignFile(OutputFilename, Filename);
-    IF AppendToFile THEN BEGIN
-      Append(OutputFilename);
-      {$I+}
-      IF NOT IOError(Filename, IOResult, ErrorMsg) THEN
-        Result := True;
-    END;
-
-    IF NOT AppendToFile OR (Result = False) THEN BEGIN
-      {$I-}
-      Rewrite(OutputFileName);
-      {$I+}
-      Result := NOT IOError(Filename, IOResult, ErrorMsg);
-    END;
-
-    IF Result = False THEN
-     ShowMessage('Warning! Unable to open file "' + Filename + '" for writing: ' + ErrorMsg);
-  EXCEPT
-    ON E : Exception DO
-      ShowMessage('OpenOutputFileOK: ' + E.ClassName +' error raised, with message: ' + E.Message);
-  END; {TRY}
-END; { OpenOutputFileOK }
-
-PROCEDURE CloseOutputFile(VAR OutputFile : Text; Filename : String);
-{ Close an output file, capturing the error message if any }
-VAR
-  ErrorMsg : String;
-
-BEGIN
-  TRY
-    {$I-}
-    CloseFile(OutputFile);
-    {$I+}
-    IF IOError(Filename, IOResult, ErrorMsg) THEN
-      ShowMessage('Error in closing file ' + Filename + ': ' + ErrorMsg);
-  EXCEPT
-    ON E : Exception DO
-      ShowMessage('CloseOutputFile: ' + E.ClassName +' error raised, with message: ' + E.Message);
-  END; {TRY}
-END; { CloseOutputFile }
 
 PROCEDURE TakeSnapWithVLC(PathName, FileName, FileNameWithoutNumbers, StartTimeInSecondsStr, StopTimeInSecondsStr : String; OUT TimedOut : Boolean);
 { Press the camera shutter }
@@ -678,64 +550,40 @@ BEGIN
   END; {TRY}
 END; { TakeSnapWithVLC }
 
-PROCEDURE SetUpSuffixes;
-{ Change .mp4s to .mpgs and add a dot between suffix and trailing number if necessary }
-CONST
-  Digits = ['0'..'9'];
-
+FUNCTION GetFileNumberSuffixFromSnapFile{1}(FileName : String; OUT IsJPEG : Boolean; OUT NumberStr : String) : Boolean; Overload;
+{ Return the suffix (if any) found in an associated snap file }
 VAR
-  Done : Boolean;
-  I : Integer;
-  SearchRec :TSearchRec;
-  SuffixLength : Integer;
-  SuffixPos : Integer;
+  LastDotPos : Integer;
+  SearchRec : TSearchRec;
+  TempInt : Integer;
+  TempStr : String;
 
 BEGIN
-  TRY
-    SetCurrentDir(ListViewPathname);
+  IsJPEG := False;
+  Result := False;
 
-    IF FindFirst(ListViewPathName + '*.*', FaAnyFile, SearchRec) = 0 THEN BEGIN
-      REPEAT
-        { If SearchRec = . OR .. then skip to next iteration }
-//        IF (SearchRec.Name =  '.') OR (SearchRec.Name =  '..') OR DirectoryExists(SearchRec.Name) THEN
-        IF (SearchRec.Name =  '.') OR (SearchRec.Name =  '..') OR IsDirectory(SearchRec.Attr) THEN
-          Continue;
+  IF FindFirst(ListViewPathName + 'Snaps\' + FileName + '*.*', FaAnyFile, SearchRec) = 0 THEN BEGIN
+    { Find the last dot - if there are numbers after it, then we want to copy them }
+    LastDotPos := LastDelimiter('.', SearchRec.Name);
+    NumberStr := Copy(SearchRec.Name, LastDotPos + 1);
+    IF NOT TryStrToInt(NumberStr, TempInt) THEN
+      NumberStr := '';
 
-        IF FileTypeSuffixFound(SearchRec.Name, '.mp4', SuffixPos, SuffixLength) THEN BEGIN
-          { Change any mp4s to mpgs }
-          IF RenameFile(SearchRec.Name, Copy(SearchRec.Name, 1, SuffixPos) + 'mpg' + Copy(SearchRec.Name, SuffixPos + 4)) THEN
-            { also change SearchRec.Name as it's being looked at in the second test below }
-            SearchRec.Name := Copy(SearchRec.Name, 1, SuffixPos) + 'mpg' + Copy(SearchRec.Name, SuffixPos + 4)
-          ELSE
-            ShowMessage('Rename of ' + SearchRec.Name + ' failed - ' + SysErrorMessage(GetLastError));
-        END;
+    IF Pos('.jpg', SearchRec.Name) > 0 THEN
+      IsJPEG := True;
 
-        { Add a dot between suffix and number }
-        I := Length(SearchRec.Name);
-        Done := False;
-        { check to see if the file name ends in a number }
-        IF CharInSet(SearchRec.Name[Length(SearchRec.Name)], Digits) THEN BEGIN
-          WHILE (I > 0) AND NOT Done DO BEGIN
-            IF NOT CharInSet(SearchRec.Name[I], Digits) THEN BEGIN
-              Done := True;
-              IF SearchRec.Name[I] <> '.' THEN BEGIN
-                { there's a missing dot }
-                IF NOT RenameFile(SearchRec.Name, Copy(SearchRec.Name, 1, I) + '.' + Copy(SearchRec.Name, I + 1)) THEN
-                  ShowMessage('Rename of ' + SearchRec.Name + ' failed - ' + SysErrorMessage(GetLastError));
-              END;
-            END;
-            Dec(I);
-          END; {WHILE}
-        END;
+    Result := True;
+  END;
+END; { GetFileNumberSuffixFromSnapFile-1 }
 
-      { Loop until no more files are found }
-      UNTIL FindNext(SearchRec) <> 0;
-    END;
-  EXCEPT
-    ON E : Exception DO
-      ShowMessage('SetUpSuffixes: ' + E.ClassName +' error raised, with message: ' + E.Message);
-  END; {TRY}
-END; { SetUpSuffixes }
+FUNCTION GetFileNumberSuffixFromSnapFile{2}(FileName : String; OUT NumberStr : String) : Boolean; Overload;
+{ Return the suffix (if any) found in an associated snap file. This version does't retirn whether we've found a jpeg or not. }
+VAR
+  IsJPEG : Boolean;
+
+BEGIN
+  Result := GetFileNumberSuffixFromSnapFile(FileName, IsJPEG, NumberStr);
+END; { GetFileNumberSuffixFromSnapFile-2 }
 
 FUNCTION FileTypeSuffixFoundMainProc(TempFileName : String; OUT FileNameWithoutSuffix : String; SuffixToFind : String; OUT SuffixFoundStr : String;
                                      OUT SuffixPos, SuffixLength : Integer; OUT TypeOfFile : FileType) : Boolean;
@@ -748,21 +596,12 @@ FUNCTION FileTypeSuffixFoundMainProc(TempFileName : String; OUT FileNameWithoutS
       Result := False;
       SuffixFoundStr := '';
       FileNameWithoutSuffix := TempFileName;
-    END ELSE
-//      IF Pos('.DB', UpperCase(TempFileName)) > 0 THEN BEGIN
-//        { exclude files with .db wherever it appears in a filename }
-//        Result := True;
-//        FileNameWithoutSuffix := Copy(TempFileName, 1, SuffixPos - 1);
-//        TypeOfFile := TempTypeOfFile;
-//        SuffixFoundStr := '';
-//        SuffixPos := 0;
-//      END ELSE
-      BEGIN
-        Result := True;
-        SuffixFoundStr := Str;
-        TypeOfFile := TempTypeOfFile;
-        FileNameWithoutSuffix := Copy(TempFileName, 1, SuffixPos - 1);
-      END;
+    END ELSE BEGIN
+      Result := True;
+      SuffixFoundStr := Str;
+      TypeOfFile := TempTypeOfFile;
+      FileNameWithoutSuffix := Copy(TempFileName, 1, SuffixPos - 1);
+    END;
   END; { GetPos }
 
 BEGIN
@@ -819,35 +658,7 @@ BEGIN
     Result := False;
 END; { FileTypeSuffixFound-1 }
 
-FUNCTION FileTypeSuffixFound{2}(TempFileName : String; OUT SuffixFoundStr : String) : Boolean; Overload;
-VAR
-  FileNameWithoutSuffix : String;
-  SuffixPos : Integer;
-  SuffixLength : Integer;
-  TypeOfFile : FileType;
-
-BEGIN
-  SuffixFoundStr := '';
-  IF FileTypeSuffixFoundMainProc(TempFileName, FileNameWithoutSuffix, '', SuffixFoundStr, SuffixPos, SuffixLength, TypeOfFile) THEN
-    Result := True
-  ELSE
-    Result := False;
-END; { FileTypeSuffixFound-2 }
-
-FUNCTION FileTypeSuffixFound{3}(TempFileName : String; OUT SuffixPos, SuffixLength : Integer) : Boolean; Overload;
-VAR
-  FileNameWithoutSuffix : String;
-  SuffixFoundStr : String;
-  TypeOfFile : FileType;
-
-BEGIN
-  IF FileTypeSuffixFoundMainProc(TempFileName, FileNameWithoutSuffix, '', SuffixFoundStr, SuffixPos, SuffixLength, TypeOfFile) THEN
-    Result := True
-  ELSE
-    Result := False;
-END; { FileTypeSuffixFound-3 }
-
-FUNCTION FileTypeSuffixFound{4}(TempFileName : String; SuffixToFind : String; OUT SuffixPos, SuffixLength : Integer) : Boolean; Overload;
+FUNCTION FileTypeSuffixFound{2}(TempFileName : String; SuffixToFind : String; OUT SuffixPos, SuffixLength : Integer) : Boolean; Overload;
 VAR
   FileNameWithoutSuffix : String;
   SuffixFoundStr : String;
@@ -858,9 +669,9 @@ BEGIN
     Result := True
   ELSE
     Result := False;
-END; { FileTypeSuffixFound-4 }
+END; { FileTypeSuffixFound-2 }
 
-FUNCTION FileTypeSuffixFound{5}(TempFileName : String; OUT TypeOfFile : FileType) : Boolean; Overload;
+FUNCTION FileTypeSuffixFound{3}(TempFileName : String; OUT TypeOfFile : FileType) : Boolean; Overload;
 VAR
   FileNameWithoutSuffix : String;
   SuffixPos : Integer;
@@ -872,20 +683,63 @@ BEGIN
     Result := True
   ELSE
     Result := False;
-END; { FileTypeSuffixFound-5 }
+END; { FileTypeSuffixFound-3 }
 
-FUNCTION FileTypeSuffixFound{6}(TempFileName : String; OUT FileNameWithoutSuffix : String; OUT TypeOfFile : FileType) : Boolean; Overload;
+PROCEDURE SetUpSuffixesAndSnapFiles;
+{ Change .mp4s to .mpgs and add a dot between suffix and trailing number if necessary }
+CONST
+  Digits = ['0'..'9'];
+
 VAR
-  SuffixPos : Integer;
+  FileNameWithoutNumbers : String;
+  Flags : Word;
+  FS : TFileStream;
+  NumberStr : String;
+  SearchRec :TSearchRec;
   SuffixLength : Integer;
-  SuffixFoundStr : String;
+  SuffixPos : Integer;
+  TypeOfFile : FileType;
 
 BEGIN
-  IF FileTypeSuffixFoundMainProc(TempFileName, FileNameWithoutSuffix, '', SuffixFoundStr, SuffixPos, SuffixLength, TypeOfFile) THEN
-    Result := True
-  ELSE
-    Result := False;
-END; { FileTypeSuffixFound-6 }
+  TRY
+    SetCurrentDir(ListViewPathname);
+
+    IF FindFirst(ListViewPathName + '*.*', FaAnyFile, SearchRec) = 0 THEN BEGIN
+      REPEAT
+        IF (SearchRec.Name =  '.') OR (SearchRec.Name =  '..') OR IsDirectory(SearchRec.Attr) THEN
+          Continue;
+
+        IF FileTypeSuffixFound(SearchRec.Name, '.mp4', SuffixPos, SuffixLength) THEN BEGIN
+          { Change any mp4s to mpgs }
+          IF RenameFile(SearchRec.Name, Copy(SearchRec.Name, 1, SuffixPos) + 'mpg' + Copy(SearchRec.Name, SuffixPos + 4)) THEN
+            { also change SearchRec.Name as it's being looked at in the second test below }
+            SearchRec.Name := Copy(SearchRec.Name, 1, SuffixPos) + 'mpg' + Copy(SearchRec.Name, SuffixPos + 4)
+          ELSE
+            ShowMessage('Rename of ' + SearchRec.Name + ' failed - ' + SysErrorMessage(GetLastError));
+        END;
+
+        { See if there's a connected snap file and create a dummy one if not }
+        IF FileTypeSuffixFound(SearchRec.Name, TypeOfFile) THEN BEGIN
+          IF TypeOfFile = VideoFile THEN BEGIN
+            RemoveNumbersAndDeletes(SearchRec.Name, FileNameWithOutNumbers, NumberStr);
+            IF NOT GetFileNumberSuffixFromSnapFile(FileNameWithOutNumbers, NumberStr) THEN BEGIN
+              Flags := fmOpenReadWrite;
+              IF NOT FileExists(ListViewPathName + 'Snaps\' + SearchRec.Name + '.txt') THEN
+                Flags := Flags OR fmCreate;
+              FS := TFileStream.Create(ListViewPathName + 'Snaps\' + SearchRec.Name + '.txt', Flags);
+              FS.Free;
+            END;
+          END;
+        END;
+
+      { Loop until no more files are found }
+      UNTIL FindNext(SearchRec) <> 0;
+    END;
+  EXCEPT
+    ON E : Exception DO
+      ShowMessage('SetUpSuffixes: ' + E.ClassName +' error raised, with message: ' + E.Message);
+  END; {TRY}
+END; { SetUpSuffixesAndSnapFiles }
 
 PROCEDURE GetHHMMSS(TempFileName, NumberStr : String; OUT HHStr, MMStr, SSStr : String; OUT IsTextFile, IsImageFile, IsVideoFile : Boolean; OUT OK : Boolean);
 VAR
@@ -1139,6 +993,7 @@ VAR
   IsVideoFile : Boolean;
   MM : Integer;
   MMStr : String;
+  NeedSnapFile : Boolean;
   NumberStr :String;
   SaveSnapsDirectory : String;
   SnapsProcessedCount : Integer;
@@ -1147,6 +1002,7 @@ VAR
   SSStr : String;
   StartTimeInSecondsStr : String;
   StopTimeInSecondsStr : String;
+  SnapTextFileNumberStr : String;
   TimedOut : Boolean;
   TimedOutStr : String;
   TotalTimeInSecondsStr : String;
@@ -1214,8 +1070,22 @@ BEGIN
                 END;
               END;
 
-              { See if the file already exists, in which case no point in creating it again }
-              IF FileSearch(FileNameWithoutNumbers + '.jpg', SaveSnapsDirectory + 'Snaps') = '' THEN BEGIN
+              NeedSnapFile := False;
+              SnapTextFileNumberStr := '';
+              { See if the file already exists, in which case no point in creating it again, unless we're replacing a .txt file with a .jpg file }
+              IF NOT GetFileNumberSuffixFromSnapFile(SearchRec.Name, NumberStr) THEN
+                NeedSnapFile := True
+              ELSE
+                IF FileExists(ListViewPathName + 'Snaps\' + SearchRec.Name + '.txt.' + NumberStr) THEN BEGIN
+                  NeedSnapFile := True;
+                  SnapTextFileNumberStr := NumberStr;
+
+                  { and delete the .txt file }
+                  IF NOT DeleteFile(ListViewPathName + 'Snaps\' + SearchRec.Name + '.txt.' + NumberStr) THEN
+                    ShowMessage('Could not delete ' + ListViewPathName + 'Snaps\' + SearchRec.Name + '.txt.' + NumberStr);
+                END;
+
+              IF NeedSnapFile THEN BEGIN
                 Inc(SnapsProcessedCount);
 
                 ExplorerForm.Caption := 'Creating ' + IntToStr(SnapsProcessedCount) + '/' + IntToStr(EligibleFiles) + ': ' + SaveSnapsDirectory + FileNameWithoutNumbers;
@@ -1223,6 +1093,9 @@ BEGIN
                 TakeSnapWithVLC(SaveSnapsDirectory, SearchRec.Name, FileNameWithoutNumbers, StartTimeInSecondsStr, StopTimeInSecondsStr, TimedOut);
                 IF TimedOut THEN
                   TimedOutStr := TimedOutStr + SearchRec.Name + ' ';
+
+                IF SnapTextFileNumberStr <> '' THEN
+                  SnapFileNumberRename(SearchRec.Name, SnapTextFileNumberStr);
 
                 CreationUndertaken := True;
               END;
@@ -1868,27 +1741,6 @@ BEGIN
   END;
 END; { IsDirectoryEmpty }
 
-FUNCTION GetFileNumberSuffixFromSnapFile(FileName : String; OUT NumberStr : String) : Boolean;
-{ Return the suffix (if any) found in an associated snap file }
-VAR
-  LastDotPos : Integer;
-  SearchRec : TSearchRec;
-  TempInt : Integer;
-
-BEGIN
-  Result := False;
-
-  IF FindFirst(ListViewPathName + 'Snaps\' + FileName + '*.*', FaAnyFile, SearchRec) = 0 THEN BEGIN
-    { Find the last dot - if there are numbers after it, then we want to copy them }
-    LastDotPos := LastDelimiter('.', SearchRec.Name);
-    NumberStr := Copy(SearchRec.Name, LastDotPos + 1);
-    IF NOT TryStrToInt(NumberStr, TempInt) THEN
-      NumberStr := '';
-
-    Result := True;
-  END;
-END; { GetFileNumberSuffixFromSnapFile }
-
 PROCEDURE ListFilesMainProc(ForceListingFlag : Boolean);
 { List all the files in the ListView }
 CONST
@@ -1900,6 +1752,7 @@ VAR
   ListFilesIcon : TIcon;
   I : Integer;
   IFileSize : Int64;
+  LastDotPos : Integer;
   ListItem : TListItem;
   NumberStr : String;
   SaveCursor : TCursor;
@@ -1907,6 +1760,8 @@ VAR
   SHFileInfo : TSHFileInfo;
   SuffixStr : String;
   TempFilesList : String;
+  TempInt : Integer;
+  TempSnapFilesList : String;
   TypeOfFile : FileType;
 
   function FileTime2DateTime(FileTime: TFileTime) : TDateTime;
@@ -1923,10 +1778,14 @@ BEGIN { ListFiles }
   TRY
     TRY
       WITH ExplorerForm DO BEGIN
+        InListFiles := True;
+
         IF NOT ForceListingFlag THEN BEGIN
           { see if any files have changed }
           IF TreeView.Selected <> NIL THEN BEGIN
+
             ListViewPathName := TraceNodePath(TreeView.Selected, TreeView.Selected.Text);
+            TempFilesList := '';
 
             IF FindFirst(ListViewPathName + '*.*', FaAnyFile, SearchRec) = 0 THEN BEGIN
               REPEAT
@@ -1939,8 +1798,26 @@ BEGIN { ListFiles }
               { loop until no more files are found }
               UNTIL FindNext(SearchRec) <> 0;
             END;
-            IF TempFilesList = SaveFilesList THEN
+
+            { Now do the same for the snaps files, which might have been updated by ImageView }
+            TempSnapFilesList := '';
+
+            IF FindFirst(ListViewPathName + 'Snaps\*.*', FaAnyFile, SearchRec) = 0 THEN BEGIN
+              REPEAT
+                IF (SearchRec.Name = '.') OR (SearchRec.Name = '..') THEN
+                  Continue
+                ELSE
+                  IF NOT IsDirectory(SearchRec.Attr) THEN
+                    TempSnapFilesList := TempSnapFilesList + SearchRec.Name;
+
+              { loop until no more files are found }
+              UNTIL FindNext(SearchRec) <> 0;
+            END;
+
+            IF (TempFilesList = SaveFilesList) AND (TempSnapFilesList = SaveSnapFilesList) THEN BEGIN
+              InListFiles := False;
               Exit;
+            END;
           END;
         END;
 
@@ -1981,8 +1858,9 @@ BEGIN { ListFiles }
           ListViewPathName := TraceNodePath(TreeView.Selected, TreeView.Selected.Text);
 
           IF Pos(ListViewPathName, DirectoriesChecked) = 0 THEN BEGIN
+            { only check for suffixes if a directory is not on the checked list }
             IF SetUpSuffixesMode THEN
-              SetUpSuffixes;
+              SetUpSuffixesAndSnapFiles;
 
             DirectoriesChecked := DirectoriesChecked + ' ' + ListViewPathName;
           END;
@@ -2005,11 +1883,12 @@ BEGIN { ListFiles }
           END;
 
           SaveFilesList := '';
+          SaveSnapFilesList := '';
 
           IF UpdateTreeView THEN
             SaveFoldersList := '';
 
-          { Start a file search using a wildcare *.* }
+          { Start a file search using a wildcard *.* }
           IF FindFirst(ListViewPathName + '*.*', FaAnyFile, SearchRec1) = 0 THEN BEGIN
             REPEAT
               { If SearchRec1 = . OR .. then skip to next iteration }
@@ -2075,11 +1954,18 @@ BEGIN { ListFiles }
                 { Column 0: set caption of item added to ListView }
                 ListItem.Caption := SearchRec1.Name;
 
-                { and add any duration data from the equivalent snaps file to the caption }
-                GetFileNumberSuffixFromSnapFile(SearchRec1.Name, NumberStr);
-                ListItem.Caption := SearchRec1.Name;
-                IF NumberStr <> '' THEN
-                  ListItem.Caption := ListItem.Caption + '.' + NumberStr;
+                { If the file has numbers as a suffix, note the fact, as if it's a video file, it probably won't work }
+                LastDotPos := LastDelimiter('.', SearchRec1.Name);
+                NumberStr := Copy(SearchRec1.Name, LastDotPos + 1);
+                IF TryStrToInt(NumberStr, TempInt) THEN
+                  ListItem.Caption := ListItem.Caption + ' ***'
+                ELSE BEGIN
+                  { otherwise add any duration data from the equivalent snaps file to the caption }
+                  GetFileNumberSuffixFromSnapFile(SearchRec1.Name, NumberStr);
+                  ListItem.Caption := SearchRec1.Name;
+                  IF NumberStr <> '' THEN
+                    ListItem.Caption := ListItem.Caption + '.' + NumberStr;
+                END;
 
                 { The subitems have to be added in the correct order or size becomes date, etc. }
 
@@ -2142,6 +2028,19 @@ BEGIN { ListFiles }
                 { and list item image index and add icon to image list }
                 ListItem.ImageIndex := ListViewImageList.AddIcon(ListFilesIcon);
               END;
+            { Loop until no more files are found }
+            UNTIL FindNext(SearchRec1) <> 0;
+          END;
+
+          { Start a file search using a wildcard *.* }
+          IF FindFirst(ListViewPathName + 'Snaps\*.*', FaAnyFile, SearchRec1) = 0 THEN BEGIN
+            REPEAT
+              { If SearchRec1 = . OR .. then skip to next iteration }
+              IF (SearchRec1.Name = '.') OR (SearchRec1.Name = '..') THEN
+                Continue;
+
+              IF NOT IsDirectory(SearchRec1.Attr) THEN
+                SaveSnapFilesList := SaveSnapFilesList + SearchRec1.Name;
             { Loop until no more files are found }
             UNTIL FindNext(SearchRec1) <> 0;
           END;
@@ -2236,6 +2135,8 @@ BEGIN { ListFiles }
 
         DrawExplorerFormCaption;
       END; {WITH}
+      InListFiles := False;
+
     FINALLY
       IF SearchRec1.Name <> '' THEN
         FindClose(SearchRec1) ;
@@ -2247,6 +2148,8 @@ BEGIN { ListFiles }
       END;
         ListView.Items.EndUpdate;
       END; {WITH}
+
+      InListFiles := False;
     END;
 
     Screen.Cursor := SaveCursor;
@@ -2347,8 +2250,9 @@ BEGIN
       SetUpSuffixesMode := ReadBool(OptionsSectionStr, SetUpSuffixesModeStr, DefaultSetUpSuffixesMode);
       MainMenuFileSetUpSuffixes.Checked := SetUpSuffixesMode;
 
-      TestMode := ReadBool(OptionsSectionStr, TestModeStr, DefaultTestMode);
-      TestCheckBox.Checked := TestMode;
+//      TestMode := ReadBool(OptionsSectionStr, TestModeStr, DefaultTestMode);
+//      TestCheckBox.Checked := TestMode;
+TestCheckBox.Checked := False; { +++ }
 
       TextFilesOnlyMode := ReadBool(OptionsSectionStr, TextFilesModeStr, DefaultTextFilesMode);
       VideoFilesOnlyMode := ReadBool(OptionsSectionStr, VideoFilesModeStr, DefaultVideoFilesMode);
@@ -2395,6 +2299,12 @@ BEGIN
         MainMenuFileClearCompareFileSizeDirectoryMenuItem.Enabled := False
       ELSE
         MainMenuFileClearCompareFileSizeDirectoryMenuItem.Enabled := True;
+
+      ImageViewDirectory := ReadString(DirectoriesSectionStr, ImageViewDirectoryStr, '');
+      IF ImageViewDirectory = '' THEN
+        MainMenuFileClearImageViewDirectoryMenuItem.Enabled := False
+      ELSE
+        MainMenuFileClearImageViewDirectoryMenuItem.Enabled := True;
 
       MoveDirectory1 := ReadString(DirectoriesSectionStr, MoveDirectory1Str, '');
       IF MoveDirectory1 = '' THEN
@@ -2526,6 +2436,7 @@ BEGIN
       WriteString(DirectoriesSectionStr, BackupAToZDirectoryStr, BackupAToZDirectory);
       WriteString(DirectoriesSectionStr, BackupDriveAndPathStr, BackupDriveAndPath);
       WriteString(DirectoriesSectionStr, BackupNToZDirectoryStr, BackupNToZDirectory);
+      WriteString(DirectoriesSectionStr, ImageViewDirectoryStr, ImageViewDirectory);
       WriteString(DirectoriesSectionStr, DirectoryNameForCompareFileSizeInDifferentDirectoryStr, DirectoryNameForCompareFileSizeInDifferentDirectory);
       WriteString(DirectoriesSectionStr, MoveDirectory1Str, MoveDirectory1);
       WriteString(DirectoriesSectionStr, MoveDirectory2Str, MoveDirectory2);
@@ -2601,6 +2512,8 @@ BEGIN
       CASE Column OF
         FileNameColumn:
           BEGIN
+            ColumnSortType := FileNameSort;
+
             IF OldAlphaNumericMode THEN
               ListViewSortStyle := cssAlphaNum
             ELSE
@@ -2612,7 +2525,9 @@ BEGIN
           END;
         SizeColumn:
           BEGIN
+            ColumnSortType := SizeSort;
             ListViewSortStyle := cssNumeric;
+
             IF ColumnSortOrder[SizeColumn] = Descending THEN
               CaptionStr := 'Sorted by size'
             ELSE
@@ -2620,7 +2535,9 @@ BEGIN
           END;
         DateColumn:
           BEGIN
+            ColumnSortType := DateSort;
             ListViewSortStyle := cssDateTime;
+
             IF ColumnSortOrder[DateColumn] = Descending THEN
               CaptionStr := 'Sorted by date'
             ELSE
@@ -2628,7 +2545,9 @@ BEGIN
           END;
         TypeColumn:
           BEGIN
+            ColumnSortType := TypeSort;
             ListViewSortStyle := cssAlphaNum;
+
             IF ColumnSortOrder[TypeColumn] = Descending THEN
               CaptionStr := 'Sorted by type'
             ELSE
@@ -2636,7 +2555,9 @@ BEGIN
           END;
         LastAccessColumn:
           BEGIN
+            ColumnSortType := LastAccessSort;
             ListViewSortStyle := cssDateTime;
+
             IF ColumnSortOrder[LastAccessColumn] = Descending THEN
               CaptionStr := 'Sorted by last access time'
             ELSE
@@ -3256,9 +3177,7 @@ BEGIN
 END; { CompareSnapImagesInDifferentDirectoryCheckBoxClick }
 
 PROCEDURE TExplorerForm.TidyUpSnapsClick(Sender: TObject);
-{ Delete snaps if there's no corresponding video file. This has to cycle through the video files because they may have number suffixes that need to be stripped and
-  can't therefore be found using FileSearch.
-}
+{ Delete snaps if there's no corresponding video file }
 VAR
   DeleteCount : Integer;
   SearchRec : TSearchRec;
@@ -3266,45 +3185,23 @@ VAR
   TempNumberStr : String;
 
 BEGIN
+  DeleteCount := 0;
+
   IF DirectoryExists(ListViewPathName + 'Snaps') THEN BEGIN
-    { First mark all the snap files as to be deleted }
     IF FindFirst(ListViewPathName + 'Snaps\*.*', FaAnyFile, SearchRec) = 0 THEN BEGIN
-      REPEAT
-        IF (SearchRec.Name = '.') OR (SearchRec.Name = '..') OR IsDirectory(SearchRec.Attr) THEN
-          Continue;
-
-        IF NOT RenameFile(ListViewPathName + 'Snaps\' + SearchRec.Name, ListViewPathName + 'Snaps\' + SearchRec.Name + '.d.') THEN
-          ShowMessage('Cannot rename ' + ListViewPathName + 'Snaps\' + SearchRec.Name);
-      UNTIL (FindNext(SearchRec) <> 0) OR Abort;
-    END;
-
-    { Now mark those snaps where there are matching video files as not to be deleted }
-    IF FindFirst(ListViewPathName + '*.*', FaAnyFile, SearchRec) = 0 THEN BEGIN
       REPEAT
         IF (SearchRec.Name = '.') OR (SearchRec.Name = '..') OR IsDirectory(SearchRec.Attr) THEN
           Continue;
 
         RemoveNumbersAndDeletes(SearchRec.Name, TempFileName, TempNumberStr);
-        TempFileName := TempFileName + '.jpg.d';
-        IF FileSearch(TempFileName, ListViewPathName + 'Snaps\') <> '' THEN
-          IF NOT RenameFile(ListViewPathName + 'Snaps\' + TempFileName, ListViewPathName + 'Snaps\' + Copy(TempFileName, 1, Length(TempFileName) - 2)) THEN
-            ShowMessage('Cannot rename ' + ListViewPathName + 'Snaps\' + TempFileName);
-
-      UNTIL (FindNext(SearchRec) <> 0) OR Abort;
-    END;
-
-    { And now delete those snaps marked as to be deleted }
-    DeleteCount := 0;
-    IF FindFirst(ListViewPathName + 'Snaps\*.*', FaAnyFile, SearchRec) = 0 THEN BEGIN
-      REPEAT
-        IF (SearchRec.Name = '.') OR (SearchRec.Name = '..') OR IsDirectory(SearchRec.Attr) THEN
-          Continue;
-
-        IF Pos('.d', SearchRec.Name) > 0 THEN
-          IF DeleteFile(ListViewPathName + 'Snaps\' + SearchRec.Name) THEN
-            Inc(DeleteCount)
+        TempFileName := ReplaceText(TempFileName, '.jpg', '');
+        TempFileName := ReplaceText(TempFileName, '.txt', '');
+        IF NOT FileExists(ListViewPathName + TempFileName) THEN
+          IF NOT DeleteFile(ListViewPathName + 'Snaps\' + SearchRec.Name) THEN
+            ShowMessage('Cannot delete ' + ListViewPathName + 'Snaps\' + SearchRec.Name)
           ELSE
-            ShowMessage('Cannot delete ' + ListViewPathName + 'Snaps\' + SearchRec.Name);
+            Inc(DeleteCount);
+
       UNTIL (FindNext(SearchRec) <> 0) OR Abort;
     END;
 
@@ -3417,6 +3314,12 @@ BEGIN
   MoveDirectory2 := '';
   MainMenuFileClearMove2DirectoryMenuItem.Enabled := False;
 END; { MainMenuFileClearMove2DirectoryClick }
+
+PROCEDURE TExplorerForm.MainMenuFileClearImageViewDirectoryMenuItemClick(Sender: TObject);
+BEGIN
+  ImageViewDirectory := '';
+  MainMenuFileClearImageViewDirectoryMenuItem.Enabled := False;
+END; { MainMenuFileClearImageViewDirectoryMenuItemClick }
 
 PROCEDURE TExplorerForm.MainMenuFileClick(Sender: TObject);
 BEGIN
@@ -3694,22 +3597,10 @@ BEGIN
   END;
 END; { MainMenuFileSetUpSuffixesClick }
 
-PROCEDURE TExplorerForm.MainMenuFileDeleteOnAllDrivesClick(Sender: TObject);
+PROCEDURE TExplorerForm.MainMenuFileResetCheckedDirectoriesListClick(Sender: TObject);
 BEGIN
-  IF FileDeleteOnAllDrivesMode THEN BEGIN
-    MainmenuFileDeleteOnAllDrives.Checked := False;
-    FileDeleteOnAllDrivesMode := False;
-  END ELSE BEGIN
-    MainmenuFileDeleteOnAllDrives.Checked := True;
-    FileDeleteOnAllDrivesMode := True;
-  END;
-END; procedure TExplorerForm.MainMenuFileDrawItem(Sender: TObject;
-  ACanvas: TCanvas; ARect: TRect; Selected: Boolean);
-begin
-
-end;
-
-{ MainMenuFileDeleteOnAllDrivesClick }
+  DirectoriesChecked := '';
+END; { MainMenuFileResetCheckedDirectoriesListClick }
 
 PROCEDURE MarkDeletedFilesOnBackupDrives(TempBackupDirectory : String);
 { See if the selfsame file exists on a backup drive and mark it to be deleted too - compare name and size to find a match }
@@ -3766,51 +3657,6 @@ BEGIN
     END;
   END; {WITH}
 END; { MarkDeletedFilesOnBackupDrives }
-
-PROCEDURE RemoveUnwantedSnapsFiles
-;
-VAR
-  SearchRec : TSearchRec;
-  TempDirectory : String;
-
-BEGIN
-  WITH ExplorerForm DO BEGIN
-    IF GetDirectory(TempDirectory) THEN BEGIN
-      IF FindFirst(TempDirectory + '\*.*', FaAnyFile, SearchRec) = 0 THEN BEGIN
-        ProgressBar.Min := 0;
-        ProgressBar.Max := TotalFileCount;
-        ProgressBar.Position := 1;
-        REPEAT
-          ProgressBar.StepIt;
-
-          IF (SearchRec.Name = '.') OR (SearchRec.Name = '..') OR DirectoryExists(ListViewPathname + SearchRec.Name) THEN
-            Continue;
-
-          { Only look at files that are marked as to be deleted }
-          IF (Copy(SearchRec.Name, Length(SearchRec.Name) - 4, 5) = '0.jpg')
-          OR (Copy(SearchRec.Name, Length(SearchRec.Name) - 4, 5) = '1.jpg')
-          OR (Copy(SearchRec.Name, Length(SearchRec.Name) - 4, 5) = '2.jpg')
-          OR (Copy(SearchRec.Name, Length(SearchRec.Name) - 4, 5) = '3.jpg')
-          OR (Copy(SearchRec.Name, Length(SearchRec.Name) - 4, 5) = '4.jpg')
-          OR (Copy(SearchRec.Name, Length(SearchRec.Name) - 4, 5) = '5.jpg')
-          OR (Copy(SearchRec.Name, Length(SearchRec.Name) - 4, 5) = '6.jpg')
-          OR (Copy(SearchRec.Name, Length(SearchRec.Name) - 4, 5) = '7.jpg')
-          OR (Copy(SearchRec.Name, Length(SearchRec.Name) - 4, 5) = '8.jpg')
-          OR (Copy(SearchRec.Name, Length(SearchRec.Name) - 4, 5) = '9.jpg')
-          THEN
-            RenameFile(TempDirectory + '\' + SearchRec.Name, TempDirectory + '\' + SearchRec.Name + '.xxx');
-
-        { Loop until no more files are found }
-        UNTIL (FindNext(SearchRec) <> 0) OR Abort;
-
-        ProgressBar.Visible := False;
-        Abort := False;
-        StopButton.Visible := False;
-        MakeSound;
-      END;
-    END; {WITH}
-  END;
-END; { RemoveUnwantedSnapsFiles }
 
 PROCEDURE TExplorerForm.MainMenuFileMarkDeletedFilesOnBackupDrivesClick(Sender: TObject);
 { See if the selfsame file exists on a backup drive and mark it to be deleted too *** }
@@ -3871,8 +3717,8 @@ BEGIN
     TestCheckBox.Checked := True;
     TestMode := True;
   END;
-//
-//  ListFiles;
+
+ListFiles(ForceListing); { temporary until all elapsed times transferred }
 END; { TestCheckBoxClick }
 
 //PROCEDURE TExplorerForm.ClearDirectoryNameForCompareFileSizeInDifferentDirectoryCheckBoxClick(Sender: TObject);
@@ -3984,9 +3830,10 @@ BEGIN
   END; {TRY}
 END; { DeleteFilePermanently }
 
-FUNCTION SnapsFileNumberRename(FileName, NewNumberStr : String) : Boolean;
-{ Routine for snaps file renaming }
+FUNCTION SnapFileNumberRename(FileName, NewNumberStr : String) : Boolean;
+{ Routine for snap file renaming }
 VAR
+  OK : Boolean;
   OldNumberStr : String;
   TypeOfFile : FileType;
 
@@ -4001,10 +3848,23 @@ BEGIN
         IF NewNumberStr = '0' THEN
           NewNumberStr := '';
 
-        IF NOT RenameFile(ListViewPathName + 'Snaps\' + FileName + '.jpg.' + OldNumberStr, ListViewPathName + 'Snaps\' + FileName + '.jpg.' + NewNumberStr) THEN
-          ShowMessage('Error ' + IntToStr(GetLastError) + ' in renaming file ''' + ListViewPathName + 'Snaps\' + FileName + '.jpg.' + OldNumberStr
-                      + ''' to ''' + ListViewPathName + 'Snaps\' + FileName + '.jpg.' + NewNumberStr)
-        ELSE BEGIN
+        OK := False;
+
+        IF FileExists(ListViewPathName + 'Snaps\' + FileName + '.txt.' + OldNumberStr) THEN
+          IF RenameFile(ListViewPathName + 'Snaps\' + FileName + '.txt.' + OldNumberStr, ListViewPathName + 'Snaps\' + FileName + '.txt.' + NewNumberStr) THEN
+            OK := True
+          ELSE
+            ShowMessage('Error ' + IntToStr(GetLastError) + ' in renaming file ''' + ListViewPathName + 'Snaps\' + FileName + '.txt.' + OldNumberStr
+                        + ''' to ''' + ListViewPathName + 'Snaps\' + FileName + '.txt.' + NewNumberStr);
+
+        IF FileExists(ListViewPathName + 'Snaps\' + FileName + '.jpg.' + OldNumberStr) THEN
+          IF RenameFile(ListViewPathName + 'Snaps\' + FileName + '.jpg.' + OldNumberStr, ListViewPathName + 'Snaps\' + FileName + '.jpg.' + NewNumberStr) THEN
+            OK := True
+          ELSE
+            ShowMessage('Error ' + IntToStr(GetLastError) + ' in renaming file ''' + ListViewPathName + 'Snaps\' + FileName + '.jpg.' + OldNumberStr
+                        + ''' to ''' + ListViewPathName + 'Snaps\' + FileName + '.jpg.' + NewNumberStr);
+
+        IF OK THEN BEGIN
           IF ListView.Items.Count > 0 THEN BEGIN
             { also rename the appropriate ListItem and then repopulate the SaveFilesList }
             IF NewNumberStr = '' THEN
@@ -4034,13 +3894,15 @@ BEGIN
     END;
   EXCEPT
     ON E : Exception DO
-      ShowMessage('FileNameRename: ' + E.ClassName +' error raised, with message: ' + E.Message);
+      ShowMessage('SnapFileNumberRename: ' + E.ClassName +' error raised, with message: ' + E.Message);
   END;
-END; { SnapsFileNumberRename }
+END; { SnapFileNumberRename }
 
 FUNCTION FileRenameProcMain(NewPathName, NewFileName : String) : Boolean;
 { Main routine for file renaming }
 VAR
+  IsJPEG : Boolean;
+  JpgOrTxtStr : String;
   NumberStr : String;
   OldSnapFileName : String;
 
@@ -4049,45 +3911,63 @@ BEGIN
 
   TRY
     WITH SelectedFileRec DO BEGIN
-      WITH ExplorerForm DO BEGIN
+      IF NOT GetFileNumberSuffixFromSnapFile(SelectedFile_Name, IsJPEG, NumberStr) THEN
+        ShowMessage('No corresponding snap file found for ' + SelectedFile_Name + ' - cannot rename file')
+      ELSE BEGIN
         IF NOT RenameFile(ListViewPathName + SelectedFile_Name, NewPathName + NewFileName) THEN
           ShowMessage('Error ' + IntToStr(GetLastError) + ' in renaming file ''' + ListViewPathName + SelectedFile_Name
                       + ''' to ''' + NewPathName + NewFileName + ''' - ' + SysErrorMessage(GetLastError))
         ELSE BEGIN
-          MainMenuEditUndo.Enabled := True;
-          MainMenuEditUndo.Caption := 'Undo last rename';
+          WITH ExplorerForm DO BEGIN
+            MainMenuEditUndo.Enabled := True;
+            MainMenuEditUndo.Caption := 'Undo last rename';
 
-          SelectedFile_LastRenameTo := NewPathName + NewFileName;
-          SelectedFile_LastRenameFrom := ListViewPathname + SelectedFile_Name;
+            SelectedFile_LastRenameTo := NewPathName + NewFileName;
+            SelectedFile_LastRenameFrom := ListViewPathname + SelectedFile_Name;
 
-          OldSnapFileName := SelectedFile_Name;
-          SelectedFile_Name := NewFileName;
-          LastSelectedFileName := SelectedFile_Name;
-          FileRenamed := True;
+            OldSnapFileName := SelectedFile_Name;
+            SelectedFile_Name := NewFileName;
+            LastSelectedFileName := SelectedFile_Name;
+            FileRenamed := True;
 
-          IF ListView.Items.Count > 0 THEN BEGIN
-            { Rename the appropriate ListItem and then repopulate the SaveFilesList }
-            IF NewPathName <> ListViewPathname THEN
-              { the file has been moved, not just renamed }
-              ListView.Items[LastSelectedItemIndex].Delete
-            ELSE BEGIN
-              ListView.Items[LastSelectedItemIndex].Caption := NewFileName;
-              ListView.Items[LastSelectedItemIndex].SubItems[2] := '------';
+            IF ListView.Items.Count > 0 THEN BEGIN
+              { Rename the appropriate ListItem and then repopulate the SaveFilesList }
+              IF NewPathName <> ListViewPathname THEN
+                { the file has been moved, not just renamed }
+                ListView.Items[LastSelectedItemIndex].Delete
+              ELSE BEGIN
+                ListView.Items[LastSelectedItemIndex].Caption := NewFileName;
+                ListView.Items[LastSelectedItemIndex].SubItems[2] := '------';
 
-              IF ExplorerForm.Visible THEN
-                ListView.SetFocus;
+                IF ExplorerForm.Visible THEN
+                  ListView.SetFocus;
+              END;
             END;
+
+            { The snap file needs to be renamed too }
+            IF IsJPEG THEN
+              JpgOrTxtStr := 'jpg'
+            ELSE
+              JpgOrTxtStr := 'txt';
+
+            IF NumberStr = '' THEN BEGIN
+              IF NOT RenameFile(ListViewPathName + 'Snaps\' + OldSnapFileName + '.' + JpgORTxtStr,
+                                NewPathName + 'Snaps\' + NewFileName  + '.' + JpgORTxtStr)
+              THEN
+                ShowMessage('Error ' + IntToStr(GetLastError) + ' in renaming file ''' + ListViewPathName + 'Snaps\' + OldSnapFileName + '.' + JpgORTxtStr
+                            + ''' to ''' + NewPathName + 'Snaps\' + NewFileName  + '.' + JpgORTxtStr);
+            END ELSE BEGIN
+              IF NOT RenameFile(ListViewPathName + 'Snaps\' + OldSnapFileName + '.' + JpgORTxtStr + '.' + NumberStr,
+                                NewPathName + 'Snaps\' + NewFileName  + '.' + JpgORTxtStr + '.' + NumberStr)
+              THEN
+                ShowMessage('Error ' + IntToStr(GetLastError) + ' in renaming file ''' + ListViewPathName + 'Snaps\' + OldSnapFileName + '.' + JpgORTxtStr + '.' + NumberStr
+                            + ''' to ''' + NewPathName + 'Snaps\' + NewFileName  + '.' + JpgORTxtStr + '.' + NumberStr);
+            END;
+
+            Result := True;
+            RepopulateSaveFilesList;
+            ListFiles;
           END;
-
-          { The snap file needs to be renamed too }
-          GetFileNumberSuffixFromSnapFile(SelectedFile_Name, NumberStr);
-          IF NOT RenameFile(ListViewPathName + 'Snaps\' + OldSnapFileName + '.jpg.' + NumberStr, ListViewPathName + 'Snaps\' + NewFileName + '.jpg.' + NumberStr) THEN
-            ShowMessage('Error ' + IntToStr(GetLastError) + ' in renaming file ''' + ListViewPathName + 'Snaps\' + OldSnapFileName + '.jpg.' + NumberStr
-                        + ''' to ''' + ListViewPathName + 'Snaps\' + NewFileName + '.jpg.' + NumberStr);
-
-          Result := True;
-          RepopulateSaveFilesList;
-          ListFiles;
         END;
       END; {WITH}
     END; {WITH}
@@ -4095,7 +3975,7 @@ BEGIN
     ON E : Exception DO
       ShowMessage('FileRenameProcMain: ' + E.ClassName +' error raised, with message: ' + E.Message);
   END;
-END; { FileRenameProcMain }
+END; { FileRenameProc }
 
 FUNCTION FileRenameProc{1}(NewFileName : String) : Boolean; Overload;
 { Calls the main routine for file renaming }
@@ -4104,8 +3984,8 @@ BEGIN
 END; { FileRenameProc-1 }
 
 FUNCTION FileRenameProc{2}(NewPathName, NewFileName : String; FileMove : Boolean) : Boolean; Overload;
-{ Calls the main routine for file renaming - this version is only used for archiving or moving. FileMove is only there to add a third parameter to distinguish the different
-  possible parameter strings
+{ Calls the main routine for file renaming - this version is only used for archiving or moving. FileMove is only there to add a third parameter to distinguish the
+  different possible parameter strings
 }
 BEGIN
   Result := FileRenameProcMain(NewPathName, NewFileName);
@@ -4203,12 +4083,12 @@ BEGIN
       ELSE BEGIN
         IF ListViewFileNameNumbersEdit.Text = '0' THEN
           { remove the numbers }
-          FileRenameProc(SelectedFile_NameWithoutNumbers)
+          SnapFileNumberRename(SelectedFile_Name, '0')
         ELSE BEGIN
-          IF SelectedFile_NameWithoutNumbers + '.' + ListViewFileNameNumbersEdit.Text = SelectedFile_Name THEN
+          IF SelectedFile_Name+ '.' + ListViewFileNameNumbersEdit.Text = SelectedFile_Name THEN
             ShowMessage('File name is the same')
           ELSE
-            FileRenameProc(SelectedFile_NameWithoutNumbers + '.' + ListViewFileNameNumbersEdit.Text);
+            FileRenameProc(SelectedFile_Name + '.' + ListViewFileNameNumbersEdit.Text);
         END;
       END;
     END;
@@ -4395,7 +4275,15 @@ END; { OpenListViewEditPanel }
 
 PROCEDURE ArchiveOrMoveMainProc(ArchiveOrMove : String; VAR TempDirectory : String; OUT OK : Boolean);
 { Archive or move a file to a given directory }
+CONST
+  FileMove = True;
+
 VAR
+  CanArchive : Boolean;
+  FileSize : Int64;
+  FreeAvailable : Int64;
+  SearchRec : TSearchRec;
+  TotalSpace : Int64;
   TypeOfFile : FileType;
 
 BEGIN
@@ -4414,32 +4302,48 @@ BEGIN
               ExplorerForm.MainMenuFileClearMove1DirectoryMenuItem.Enabled := True
             ELSE
               ExplorerForm.MainMenuFileClearMove2DirectoryMenuItem.Enabled := True;
+        END;
 
-          IF NOT FileRenameProc(TempDirectory + '\', SelectedFile_Name, True) THEN
-            ShowMessage('Could not move "' + ListViewPathName + SelectedFile_Name + '"'
-                        + ' to "' + TempDirectory + '\' + SelectedFile_Name + '" - ' + SysErrorMessage(GetLastError))
-          ELSE BEGIN
-            { and move the snap file, if any, too }
-            IF FileExists(ListViewPathName + 'Snaps\' + SelectedFile_Name + '.jpg') THEN
-              IF NOT DirectoryExists(TempDirectory + '\Snaps') THEN
-                { just delete it - there's no point asking for confirmation as it's an ancillary file }
-                DeleteFile(ListViewPathName + 'Snaps\' + SelectedFile_Name + '.jpg')
-              ELSE
-                IF NOT RenameFile(ListViewPathName + 'Snaps\' + SelectedFile_Name + '.jpg', TempDirectory + '\Snaps\' + SelectedFile_Name + '.jpg') THEN
-                  ShowMessage('Error ' + IntToStr(GetLastError) + ': could not rename snap file "' + ListViewPathName + 'Snaps\' + SelectedFile_Name + '.jpg"'
-                              + '" - ' + SysErrorMessage(GetLastError));
+        CanArchive := True;
+        IF FindFirst(ListViewPathName + SelectedFile_Name + '*.*', FaAnyFile, SearchRec) = 0 THEN BEGIN
+          IF SysUtils.GetDiskFreeSpaceEx(PChar(ArchiveDirectory), FreeAvailable, TotalSpace, NIL) THEN BEGIN
+            FileSize := Int64(SearchRec.FindData.nFileSizeHigh) SHL Int64(32) + Int64(SearchRec.FindData.nFileSizeLow);
 
-            Dec(TotalFileCount);
-            IF FileTypeSuffixFound(SelectedFile_Name, TypeOfFile) AND (TypeOfFile = VideoFile) THEN BEGIN
-              Dec(VideoFileCount);
-              DrawExplorerFormCaption;
+            { Leave a margin, to stop the annoying "your disc is nearly full" system popups }
+            IF FileSize + 100000 > FreeAvailable THEN BEGIN
+              { we can't save it there - best mark it as to-be-archived instead }
+              CanArchive := False;
+              FileRenameProc(ListViewPathName, SelectedFile_Name + 's', FileMove);
             END;
 
-            SelectedFile_Name := '';
-            FileMoved := True;
-            OK := True;
+            IF CanArchive THEN BEGIN
+              IF NOT FileRenameProc(TempDirectory + '\', SelectedFile_Name, True) THEN
+                ShowMessage('Could not move "' + ListViewPathName + SelectedFile_Name + '"'
+                            + ' to "' + TempDirectory + '\' + SelectedFile_Name + '" - ' + SysErrorMessage(GetLastError))
+              ELSE BEGIN
+                { and move the snap file, if any, too }
+                IF FileExists(ListViewPathName + 'Snaps\' + SelectedFile_Name + '.jpg') THEN
+                  IF NOT DirectoryExists(TempDirectory + '\Snaps') THEN
+                    { just delete it - there's no point asking for confirmation as it's an ancillary file }
+                    DeleteFile(ListViewPathName + 'Snaps\' + SelectedFile_Name + '.jpg')
+                  ELSE
+                    IF NOT RenameFile(ListViewPathName + 'Snaps\' + SelectedFile_Name + '.jpg', TempDirectory + '\Snaps\' + SelectedFile_Name + '.jpg') THEN
+                      ShowMessage('Error ' + IntToStr(GetLastError) + ': could not rename snap file "' + ListViewPathName + 'Snaps\' + SelectedFile_Name + '.jpg"'
+                                  + '" - ' + SysErrorMessage(GetLastError));
 
-            ListFiles;
+                Dec(TotalFileCount);
+                IF FileTypeSuffixFound(SelectedFile_Name, TypeOfFile) AND (TypeOfFile = VideoFile) THEN BEGIN
+                  Dec(VideoFileCount);
+                  DrawExplorerFormCaption;
+                END;
+
+                SelectedFile_Name := '';
+                FileMoved := True;
+                OK := True;
+
+                ListFiles;
+              END;
+            END;
           END;
         END;
       END;
@@ -4476,7 +4380,7 @@ BEGIN
   MainMenuFileClearArchiveDirectoryMenuItem.Checked := False;
 END;{ ListViewArchivePopupClick }
 
-PROCEDURE TExplorerForm.ListViewKeyPress(Sender: TObject; VAR Key: Char);
+PROCEDURE TExplorerForm.ListViewKeyPress(Sender: TObject; VAR Key : Char);
 { This is used to stop the ListView moving the cursor after doing the archive or move }
 
   PROCEDURE RenameSpecificFileType(FileName, FileTypeStr : String);
@@ -4519,40 +4423,119 @@ BEGIN
   END;
 
   IF (Key = 'S') OR (Key ='s')  THEN BEGIN
-    RenameSpecificFileType(SelectedFileRec.SelectedFile_Name, 'st-');
+//    RenameSpecificFileType(SelectedFileRec.SelectedFile_Name, 'st-');
     Key := ' ';
   END;
 
   IF (Key = 'O') OR (Key ='o')  THEN BEGIN
-    RenameSpecificFileType(SelectedFileRec.SelectedFile_Name, 'so-');
+//    RenameSpecificFileType(SelectedFileRec.SelectedFile_Name, 'so-');
     Key := ' ';
   END;
 
   IF (Key = 'P') OR (Key ='p')  THEN BEGIN
-    RenameSpecificFileType(SelectedFileRec.SelectedFile_Name, 'sp-');
+//    RenameSpecificFileType(SelectedFileRec.SelectedFile_Name, 'sp-');
     Key := ' ';
   END;
 
   IF (Key = 'V') OR (Key ='v')  THEN BEGIN
-    RenameSpecificFileType(SelectedFileRec.SelectedFile_Name, 'v-');
+//    RenameSpecificFileType(SelectedFileRec.SelectedFile_Name, 'v-');
     Key := ' ';
   END;
 END;
 
 PROCEDURE StartImageView;
 VAR
+  SortStr : String;
+  DirStr : WideString;
+  DirStrPtr : PWideChar;
   ShellStr : WideString;
   ShellStrPtr : PWideChar;
 
 BEGIN
+  IF ImageViewDirectory = '' THEN BEGIN
+    IF MessageDlg('Create ImageView Directory?', mtConfirmation, [mbYes, mbNo], 0, mbNo) = mrNo THEN
+      Exit;
+  END;
+
+  IF NOT GetDirectory(ImageViewDirectory) THEN BEGIN
+    { store the drive and path name as this might be used elsewhere }
+    ShowMessage('"' + ImageViewDirectory + '" is not a valid directory');
+    Exit;
+  END;
+
   { start up ImageView with the current directory }
-  ShellStr := '/dir=' + ListViewPathName + ' /archive=' + ArchiveDirectory + ' /move1=' + MoveDirectory1 + ' /move2=' + MoveDirectory2;
+  CASE ColumnSortType OF
+    FileNameSort:
+      SortStr := 'FileNameSort';
+    DateSort:
+      SortStr := 'DateSort';
+    LastAccessSort:
+      SortStr := 'LastAccessSort';
+    SizeSort:
+      SortStr := 'SizeSort';
+    TypeSort:
+      SortStr := 'TypeSort';
+  END; {CASE}
+
+  ShellStr := '/dir=' + ListViewPathName + ' /archive=' + ArchiveDirectory + ' /move1=' + MoveDirectory1 + ' /move2=' + MoveDirectory2 + ' /sort=' + SortStr;
   ShellStrPtr := Addr(ShellStr[1]);
 
-  ShellExecute(Application.Handle, 'open', '"C:\Doc\Dropbox\RAD Studio\Projects\ImageView\ImageView.exe"', ShellStrPtr, nil, SW_SHOWNORMAL);
+  DirStr := '"' + ImageViewDirectory + '\ImageView.exe"';
+  DirStrPtr := Addr(DirStr[1]);
+  ShellExecute(Application.Handle, 'open', DirStrPtr, ShellStrPtr, NIL, SW_SHOWNORMAL);
 END; { StartImageView }
 
 PROCEDURE TExplorerForm.ListViewKeyDown(Sender: TObject; VAR Key: Word; ShiftState: TShiftState);
+
+  PROCEDURE TempMoveElapsedTimes;
+  VAR
+    ErrorMsg : String;
+    FileNameWithoutNumbers : String;
+    NumberStr : String;
+    OutputFilename : TextFile;
+    UndoOutputFilename : TextFile;
+    SearchRec : TSearchRec;
+
+  BEGIN;
+    OpenOutputFileOK(OutputFilename, ListViewPathName + 'temprename.bat', ErrorMsg, True);
+    OpenOutputFileOK(UndoOutputFilename, ListViewPathName + 'tempundorename.bat', ErrorMsg, True);
+
+    IF FindFirst(ListViewPathName + '*.*', FaAnyFile, SearchRec) = 0 THEN BEGIN
+      REPEAT
+        IF (SearchRec.Name =  '.') OR (SearchRec.Name =  '..') OR IsDirectory(SearchRec.Attr) THEN
+          Continue;
+
+        RemoveNumbersAndDeletes(SearchRec.Name, FileNameWithoutNumbers, NumberStr);
+
+        IF NumberStr <> '' THEN BEGIN
+          IF FileExists(ListViewPathName + 'Snaps\' + FileNameWithoutNumbers + '.jpg') THEN BEGIN
+            WriteLn(OutputFileName, 'rename "'
+                                    + ListViewPathName + SearchRec.Name + '" "'
+                                    + FileNameWithoutNumbers + '"');
+            WriteLn(OutputFileName, 'rename "'
+                                    + ListViewPathName + 'snaps\' + FileNameWithoutNumbers + '.jpg' + '" "'
+                                    + FileNameWithoutNumbers + '.jpg.' + NumberStr + '"');
+
+            WriteLn(UndoOutputFileName, 'rename "'
+                                        + ListViewPathName + FileNameWithoutNumbers + '" "'
+                                        + SearchRec.Name + '"');
+
+            WriteLn(UndoOutputFileName, 'rename "'
+                                        + ListViewPathName + 'snaps\' + FileNameWithoutNumbers + '.jpg.' + NumberStr + '" "'
+                                        + FileNameWithoutNumbers + '.jpg"');
+          END;
+        END;
+
+      { Loop until no more files are found }
+      UNTIL FindNext(SearchRec) <> 0;
+    END;
+
+    WriteLn(OutputFileName, 'pause');
+    WriteLn(UndoOutputFileName, 'pause');
+    CloseFile(OutputFileName);
+    CloseFile(UndoOutputFileName);
+  END; { TempMoveElapsedTimes }
+
 TYPE
   ShiftKeysType = (NoShiftKeys, Alt, Shift, Ctrl, ShiftAlt, CtrlShift, CtrlAlt, CtrlAltShift);
 
@@ -4570,8 +4553,7 @@ BEGIN
       { note: some keypresses are dealt with in ExplorerForm.ListViewKeyPress }
       CASE Key OF
         Ord('0'):
-          IF FWPMode THEN
-            FileRenameProc(SelectedFile_NameWithoutNumbers);
+          SnapFileNumberRename(SelectedFile_Name, '0');
 
         Ord('A'):
           IF ssCtrl IN ShiftState THEN BEGIN
@@ -4589,13 +4571,15 @@ BEGIN
           IF ssCtrl IN ShiftState THEN
             FindDialog.Execute;
 
+        Ord('T'):
+          IF ssCtrl IN ShiftState THEN
+            TempMoveElapsedTimes;
+
         Ord('V'):
-          IF FWPMode THEN BEGIN
-            IF Copy(SelectedFile_Name, 1, 2) = 'v-' THEN
-              FileRenameProc(Copy(SelectedFile_Name, 3))
-            ELSE
-              FileRenameProc('v-' + SelectedFile_Name);
-          END;
+          IF Copy(SelectedFile_Name, 1, 2) = 'v-' THEN
+            FileRenameProc(Copy(SelectedFile_Name, 3))
+          ELSE
+            FileRenameProc('v-' + SelectedFile_Name);
 
         Ord('Z'):
           IF ZoomPlayerUnitForm.Visible THEN
@@ -4626,7 +4610,7 @@ BEGIN
                   IF NOT (ssShift IN ShiftState) THEN BEGIN
                     IF FWPMode THEN BEGIN
                       { Rename the files adding a "d" for future deletion by hand }
-                      FileRenameProc(SelectedFile_NameWithoutNumbers + '.d')
+                      FileRenameProc(SelectedFile_Name+ '.d')
                     END ELSE BEGIN
                       CASE MessageDlg('Move "' + SelectedFile_Name + '" to Recycle Bin?', mtConfirmation, [mbYes, mbNo], 0, mbNo) OF
                         mrYes:
@@ -4733,7 +4717,7 @@ BEGIN
             OpenListViewEditPanel;
 
         vk_Return:
-          ExecuteClick(SelectedFile_NameWithoutNumbers);
+          ExecuteClick(SelectedFile_Name);
        END; {CASE}
 
       IdleState := SaveIdleState;
@@ -5026,15 +5010,15 @@ BEGIN
           IF DirectoryExists(ListViewPathName + SelectedFile_Name) THEN
             beep
           ELSE
-            IF NOT FWPMode OR NOT SingleClickMode THEN
-              ExecuteClick(SelectedFile_NameWithoutNumbers);
+            IF NOT SingleClickMode THEN
+              ExecuteClick(SelectedFile_Name);
         END ELSE
           IF SnapsCompareForm.Visible AND (SaveCaption <> '') THEN BEGIN
             { this is a hack to get around the problem that if the image form is open, double clicking doesn't work - somehow the program loses the ListView selection in
               those circumstances
             }
             IF NOT SingleClickMode THEN
-              ExecuteClick(SelectedFile_NameWithoutNumbers);
+              ExecuteClick(SelectedFile_Name);
             SaveCaption := '';
           END;
       END; {WITH}
@@ -5071,7 +5055,7 @@ BEGIN
           IF ListView.Selected <> NIL THEN BEGIN
             IF FWPMode AND (SelectedFile_IsTextFile OR SelectedFile_IsImageFile OR SelectedFile_IsVideoFile) THEN BEGIN
               IF SingleClickMode THEN
-                ExecuteClick(SelectedFile_NameWithoutNumbers)
+                ExecuteClick(SelectedFile_Name)
               ELSE
                 SaveCaption := ListView.Selected.Caption;
             END;
@@ -5092,7 +5076,6 @@ PROCEDURE InitialiseSelectedFileVariables;
 BEGIN
   WITH SelectedFileRec DO BEGIN
     SelectedFile_Name := '';
-    SelectedFile_NameWithoutNumbers := '';
     SelectedFile_NumberStr := '';
     SelectedFile_IsTextFile := False;
     SelectedFile_IsVideoFile := False;
@@ -5109,6 +5092,7 @@ END; { InitialiseSelectedFileVariables }
 
 PROCEDURE TExplorerForm.ListViewMouseDown(Sender : TObject; Button: TMouseButton; ShiftState: TShiftState; X, Y: Integer);
 VAR
+
   I : Integer;
   ItemFound : Boolean;
   ListItem : TListItem;
@@ -5140,7 +5124,11 @@ BEGIN
 //      END;
 
       IF ListItem <> NIL THEN BEGIN
-        SelectedFile_Name := ExtractFileName(ListItem.Caption);
+
+        { Strip out any elapsed time data as it is always stored somewhere else and is only added to the file name in ListView for convenience }
+        RemoveNumbersAndDeletes(ExtractFileName(ListItem.Caption), SelectedFile_Name, SelectedFile_NumberStr);
+        GetHHMMSS(SelectedFile_Name, SelectedFile_NumberStr, SelectedFile_HHStr, SelectedFile_MMStr, SelectedFile_SSStr, SelectedFile_IsTextFile, SelectedFile_IsImageFile,
+                  SelectedFile_IsVideoFile, OK);
 
         { Store the following filename too, as we can use it later if the item is deleted, for putting the items near it back into view }
         I := 0;
@@ -5150,7 +5138,7 @@ BEGIN
         ItemFound := False;
         { Store its location in case we wish to do a find from it }
         WHILE (I <= ListView.Items.Count) AND NOT ItemFound DO BEGIN
-          IF ListView.Items[I].Caption = SelectedFile_Name THEN BEGIN
+          IF Pos(SelectedFile_Name, ListView.Items[I].Caption) > 0 THEN BEGIN
             SaveItemFoundNum := I;
             ItemFound := True;
           END;
@@ -5170,9 +5158,6 @@ BEGIN
           IF SaveTempListItem <> NIL THEN
             NextFileName := ExtractFileName(SaveTempListItem.Caption);
 
-        RemoveNumbersAndDeletes(SelectedFile_Name, SelectedFile_NameWithoutNumbers, SelectedFile_NumberStr);
-        GetHHMMSS(SelectedFile_Name, SelectedFile_NumberStr, SelectedFile_HHStr, SelectedFile_MMStr, SelectedFile_SSStr, SelectedFile_IsTextFile, SelectedFile_IsImageFile,
-                  SelectedFile_IsVideoFile, OK);
       END;
 
       IF FWPMode AND (Button = mbRight) AND NOT (ssShift IN ShiftState) AND NOT (ssCtrl IN ShiftState) THEN BEGIN
@@ -5423,10 +5408,12 @@ END; { TreeViewDragOver }
 PROCEDURE TExplorerForm.TreeViewDragDrop(Sender, Source : TObject; X, Y : Integer);
 { Dropping file on target treeview }
 VAR
-  OldFileAndDirectory, NewFileAndDirectory : String;
+  NewDirectory : String;
+  NumberStr : String;
   SaveIdleState : Boolean;
   SelectedItem : TListItem;
   TargetNode : TTreeNode;
+  TempFileName : String;
 
 BEGIN
   WITH SelectedFileRec DO BEGIN
@@ -5442,20 +5429,30 @@ BEGIN
         SelectedItem := ListView.Selected;
 
         WHILE Assigned(SelectedItem) DO BEGIN
-          OldFileAndDirectory := ListViewPathName + SelectedItem.Caption;
-          NewFileAndDirectory := GetPathFromNode(TargetNode) + '\' + SelectedItem.Caption;
+          RemoveNumbersAndDeletes(SelectedItem.Caption, TempFileName, NumberStr);
+          NewDirectory := GetPathFromNode(TargetNode);
 
-          IF NOT RenameFile(OldFileAndDirectory, NewFileAndDirectory) THEN
-            ShowMessage('Could not move "' + OldFileAndDirectory + '" to "' + NewFileAndDirectory + '" - ' + SysErrorMessage(GetLastError))
+          IF NOT RenameFile(ListViewPathName + TempFileName, NewDirectory + '\' + TempFileName) THEN
+            ShowMessage('Could not move "' + ListViewPathName + TempFileName + '" to "' + NewDirectory + '\' + TempFileName + '" - ' + SysErrorMessage(GetLastError))
           ELSE BEGIN
+            { and move the snap file, if any, too }
+            IF FileExists(ListViewPathName + 'Snaps\' + TempFileName + '.jpg.' + NumberStr) THEN
+              IF NOT DirectoryExists(ListViewPathName + '\Snaps') THEN
+                { just delete it - there's no point asking for confirmation as it's an ancillary file }
+                DeleteFile(ListViewPathName + 'Snaps\' + TempFileName + '.jpg.' + NumberStr)
+              ELSE
+                IF NOT RenameFile(ListViewPathName + 'Snaps\' + TempFileName + '.jpg.' + NumberStr, NewDirectory + '\Snaps\' + TempFileName + '.jpg.' + NumberStr) THEN
+                  ShowMessage('Error ' + IntToStr(GetLastError) + ': could not rename snap file "' + ListViewPathName + 'Snaps\' + TempFileName + '.jpg.' + NumberStr + '"'
+                              + '" - ' + SysErrorMessage(GetLastError));
+
             MainMenuEditUndo.Enabled := True;
             MainMenuEditUndo.Caption := 'Undo last file move';
 
             FileMoved := True;
-            SetLength(UndoFromArray, Length(UndoFromArray) + 1);
-            UndoFromArray[High(UndoFromArray)] := OldFileAndDirectory;
-            SetLength(UndoToArray, Length(UndoToArray) + 1);
-            UndoToArray[High(UndoToArray)] := NewFileAndDirectory;
+//            SetLength(UndoFromArray, Length(UndoFromArray) + 1);
+//            UndoFromArray[High(UndoFromArray)] := OldFileAndDirectory;
+//            SetLength(UndoToArray, Length(UndoToArray) + 1);
+//            UndoToArray[High(UndoToArray)] := NewFileAndDirectory;
           END;
 
           SelectedItem := ListView.GetNextItem(SelectedItem, sdAll, [isSelected]);
@@ -5871,10 +5868,11 @@ VAR
   TempDrivesList : String;
   TempFilesList : String;
   TempFoldersList : String;
+  TempSnapFilesList : String;
 
 BEGIN
   TRY
-    IF IdleState AND NOT ListViewFileNameNumbersEdit.Visible AND NOT ListViewFileNameEdit.Visible THEN BEGIN
+    IF NOT InListFiles AND IdleState AND NOT ListViewFileNameNumbersEdit.Visible AND NOT ListViewFileNameEdit.Visible THEN BEGIN
       TempFilesList := '';
       TempDrivesList := '';
 
@@ -5921,7 +5919,20 @@ BEGIN
         UNTIL FindNext(SearchRec) <> 0;
       END;
 
-      IF TempFilesList <> SaveFilesList THEN
+      { and do the same for the snap files }
+      IF FindFirst(ListViewPathName + 'Snaps\*.*', FaAnyFile, SearchRec) = 0 THEN BEGIN
+        REPEAT
+          IF (SearchRec.Name = '.') OR (SearchRec.Name = '..') THEN
+            Continue
+          ELSE
+            IF NOT IsDirectory(SearchRec.Attr) THEN
+              TempSnapFilesList := TempSnapFilesList + SearchRec.Name;
+
+        { loop until no more files are found }
+        UNTIL FindNext(SearchRec) <> 0;
+      END;
+
+      IF (TempFilesList <> SaveFilesList) OR (TempSnapFilesList <> SaveSnapFilesList) THEN
         ListFiles;
 
       IF TempFoldersList <> SaveFoldersList THEN BEGIN
@@ -6040,24 +6051,18 @@ BEGIN
             Sender.Canvas.Font.Color := clWhite;
             Sender.Canvas.Brush.Color := clGreen;
           END ELSE
-            IF FWPMode THEN
-              IF FileTypeSuffixFound(Item.Caption, TypeOfFile) THEN
-                IF (TypeOfFile = VideoFile) AND NOT VideoFilesOnlyMode THEN
-                  Sender.Canvas.Font.Style := [fsBold]
-                ELSE
-                  IF (TypeOfFile = Text_File) AND NOT TextFilesOnlyMode THEN
-                    Sender.Canvas.Font.Style := [fsBold];
+            IF FileTypeSuffixFound(Item.Caption, TypeOfFile) THEN
+              IF (TypeOfFile = VideoFile) AND NOT VideoFilesOnlyMode THEN
+                Sender.Canvas.Font.Style := [fsBold]
+              ELSE
+                IF (TypeOfFile = Text_File) AND NOT TextFilesOnlyMode THEN
+                  Sender.Canvas.Font.Style := [fsBold];
   EXCEPT
     ON E : Exception DO
       ShowMessage('ListViewAdvancedCustomDrawItem: ' + E.ClassName +' error raised, with message: ' + E.Message
                   + ' - Item = ' + Item.Caption);
   END; {TRY}
 END; { ListViewAdvancedCustomDrawItem }
-
-PROCEDURE TempMoveElapsedTimes;
-BEGIN
-
-END; { TempMoveElapsedTimes }
 
 INITIALIZATION
   { turn off when debugging (can then use the caption for debugging output) }

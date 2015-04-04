@@ -382,18 +382,18 @@ BEGIN
           IF TryStrToInt(ElapsedTimeFromTCPStr, I) THEN BEGIN
             { do not record times less than 5 seconds }
             IF I < 5 THEN BEGIN
-              IF SnapsFileNumberRename(SelectedFile_NameWithoutNumbers, '0') THEN BEGIN
+              IF SnapFileNumberRename(SelectedFile_Name, '0') THEN BEGIN
                 ExplorerForm.ListView.Selected := ExplorerForm.ListView.Items[SaveSelectedIndex];
                 ExplorerForm.ListView.Itemfocused := ExplorerForm.ListView.Items[SaveSelectedIndex];
               END;
             END ELSE
-              IF SnapsFileNumberRename(SelectedFile_NameWithoutNumbers, ElapsedTimeFromTCPStr) THEN BEGIN
+              IF SnapFileNumberRename(SelectedFile_Name, ElapsedTimeFromTCPStr) THEN BEGIN
                 FileMoved := True;
                 ExplorerForm.ListView.Selected := ExplorerForm.ListView.Items[SaveSelectedIndex];
                 ExplorerForm.ListView.ItemFocused := ExplorerForm.ListView.Items[SaveSelectedIndex];
 
                 { and update the last access time, as Zoom Player doesn't seem to do it }
-                SetFileLastAccessTime(ListViewPathName + SelectedFile_NameWithoutNumbers, Now);
+                SetFileLastAccessTime(ListViewPathName + SelectedFile_Name, Now);
               END;
           END;
         END;

@@ -334,7 +334,7 @@ object ExplorerForm: TExplorerForm
     Left = 56
     Top = 88
     Bitmap = {
-      494C010101007803C80310001000FFFFFF00FF10FFFFFFFFFFFFFFFF424D3600
+      494C0101010078031C0410001000FFFFFF00FF10FFFFFFFFFFFFFFFF424D3600
       0000000000003600000028000000400000001000000001002000000000000010
       000000000000000000000000000000000000FFFFFF00FFFFFF00FFFFFF00FFFF
       FF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFF
@@ -563,7 +563,6 @@ object ExplorerForm: TExplorerForm
     object MainMenuFile: TMenuItem
       Caption = 'File'
       OnClick = MainMenuFileClick
-      OnDrawItem = MainMenuFileDrawItem
       object MainMenuFileNew: TMenuItem
         Caption = 'New'
         object MainMenuFileNewFile: TMenuItem
@@ -626,13 +625,20 @@ object ExplorerForm: TExplorerForm
       object MainMenuFileSeparator4: TMenuItem
         Caption = '-'
       end
+      object MainMenuFileClearImageViewDirectoryMenuItem: TMenuItem
+        Caption = 'Clear ImageView Directory'
+        OnClick = MainMenuFileClearImageViewDirectoryMenuItemClick
+      end
+      object N2: TMenuItem
+        Caption = '-'
+      end
       object MainMenuFileSetUpSuffixes: TMenuItem
         Caption = 'Set Up Suffixes'
         OnClick = MainMenuFileSetUpSuffixesClick
       end
-      object MainMenuFileDeleteOnAllDrives: TMenuItem
-        Caption = 'Delete On All Drives'
-        OnClick = MainMenuFileDeleteOnAllDrivesClick
+      object MainMenuFileResetCheckedDirectoriesList: TMenuItem
+        Caption = 'Reset Checked Directories List'
+        OnClick = MainMenuFileResetCheckedDirectoriesListClick
       end
       object MainMenuFileSeparator5: TMenuItem
         Caption = '-'
