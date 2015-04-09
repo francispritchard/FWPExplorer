@@ -718,7 +718,14 @@ BEGIN
             ShowMessage('Rename of ' + SearchRec.Name + ' failed - ' + SysErrorMessage(GetLastError));
         END;
 
-        { See if there's a connected snap file and create a dummy one if not }
+        { See if there's a connected snap file and create a dummy one if not - creating a snaps directory if one doesn't exist }
+        IF NOT DirectoryExists(ListViewPathName + 'Snaps') THEN BEGIN
+          IF NOT CreateDir(ListViewPathName + 'Snaps') THEN BEGIN
+            ShowMessage('Cannot create a Snaps directory');
+            Exit;
+          END;
+        END;
+
         IF FileTypeSuffixFound(SearchRec.Name, TypeOfFile) THEN BEGIN
           IF TypeOfFile = VideoFile THEN BEGIN
             RemoveNumbersAndDeletes(SearchRec.Name, FileNameWithOutNumbers, NumberStr);
@@ -996,8 +1003,9 @@ VAR
   NeedSnapFile : Boolean;
   NumberStr :String;
   SaveSnapsDirectory : String;
-  SnapsProcessedCount : Integer;
   SearchRec : TSearchRec;
+  SnapFileName : String;
+  SnapsProcessedCount : Integer;
   SS : Integer;
   SSStr : String;
   StartTimeInSecondsStr : String;
@@ -1024,13 +1032,18 @@ BEGIN
           IF (SearchRec.Name =  '.') OR (SearchRec.Name =  '..') OR IsDirectory(SearchRec.Attr) THEN
             Continue
           ELSE BEGIN
-            IF FileTypeSuffixFound(SearchRec.Name) THEN BEGIN
-              IF FileTypeSuffixFound(SearchRec.Name, TypeOfFile)
-              AND (TypeOfFile = VideoFile)
-              AND (FileSearch(SearchRec.Name + '.jpg', ListViewPathName + 'Snaps') = '')
-              AND (Pos('.lnk', SearchRec.Name) = 0)
-              THEN
-                Inc(EligibleFiles);
+            IF (Pos('.lnk', SearchRec.Name) = 0) AND (Pos('.d', SearchRec.Name) = 0) AND (Pos('.db', SearchRec.Name) = 0) AND (Pos('.s', SearchRec.Name) = 0) THEN BEGIN
+              IF FileTypeSuffixFound(SearchRec.Name, TypeOfFile) AND (TypeOfFile = VideoFile) THEN BEGIN
+                IF GetFileNumberSuffixFromSnapFile(SearchRec.Name, NumberStr) THEN BEGIN
+                  IF NumberStr = '' THEN
+                    SnapFileName := SearchRec.Name + '.jpg'
+                  ELSE
+                    SnapFileName := SearchRec.Name + '.jpg.' + NumberStr;
+
+                  IF FileSearch(SnapFileName, ListViewPathname + 'Snaps') = '' THEN
+                    Inc(EligibleFiles);
+                END;
+              END;
             END;
           END;
         UNTIL FindNext(SearchRec) <> 0;
