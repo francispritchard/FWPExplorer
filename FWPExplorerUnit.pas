@@ -299,7 +299,7 @@ VAR
   FSortForward: Boolean;
   FullFileSizeColumnPos : Integer;
   FullScreen : Boolean = False;
-  FWPMode : Boolean = False;
+  FWPMode : Boolean = True;
   HourGlassTimerTicks : Integer = 0;
   IconList : TStringList;
   IdleState : Boolean = True;
@@ -1092,10 +1092,6 @@ BEGIN
                 IF FileExists(ListViewPathName + 'Snaps\' + SearchRec.Name + '.txt.' + NumberStr) THEN BEGIN
                   NeedSnapFile := True;
                   SnapTextFileNumberStr := NumberStr;
-
-                  { and delete the .txt file }
-                  IF NOT DeleteFile(ListViewPathName + 'Snaps\' + SearchRec.Name + '.txt.' + NumberStr) THEN
-                    ShowMessage('Could not delete ' + ListViewPathName + 'Snaps\' + SearchRec.Name + '.txt.' + NumberStr);
                 END;
 
               IF NeedSnapFile THEN BEGIN
@@ -1109,6 +1105,13 @@ BEGIN
 
                 IF SnapTextFileNumberStr <> '' THEN
                   SnapFileNumberRename(SearchRec.Name, SnapTextFileNumberStr);
+
+                IF FileExists(ListViewPathName + 'Snaps\' + SearchRec.Name + '.txt.' + NumberStr)
+                AND FileExists(ListViewPathName + 'Snaps\' + SearchRec.Name + '.jpg.' + NumberStr)
+                THEN
+                  { and delete the .txt file. (This is done here, not above, as previously we were deleting the .txt file even if a .jpg file hadn't been created.) }
+                  IF NOT DeleteFile(ListViewPathName + 'Snaps\' + SearchRec.Name + '.txt.' + NumberStr) THEN
+                    ShowMessage('Could not delete ' + ListViewPathName + 'Snaps\' + SearchRec.Name + '.txt.' + NumberStr);
 
                 CreationUndertaken := True;
               END;
@@ -4013,8 +4016,7 @@ BEGIN
   IdleState := False;
 
   { this is added to get rid of the annoying beep }
-  IF FWPMode THEN
-    ListViewFileNameEdit.ReadOnly := False;
+  ListViewFileNameEdit.ReadOnly := False;
 
   IdleState := SaveIdleState;
 END; { FileNameEditEnter }
@@ -4027,8 +4029,7 @@ BEGIN
   SaveIdleState := IdleState;
 
   { this is added to get rid of the annoying beep }
-  IF FWPMode THEN
-    ListViewFileNameEdit.ReadOnly := True;
+  ListViewFileNameEdit.ReadOnly := True;
 
   IdleState := SaveIdleState;
 END; { FileNameEditExit }
@@ -4069,16 +4070,14 @@ END; { FileNameEditKeyPress }
 PROCEDURE TExplorerForm.ListViewFileNameNumbersEditEnter(Sender : TObject);
 BEGIN
   { this is added to get rid of the annoying beep }
-  IF FWPMode THEN
-    ListViewFileNameNumbersEdit.ReadOnly := False;
+  ListViewFileNameNumbersEdit.ReadOnly := False;
   ListViewFileNameNumbersEdit.SetFocus;
 END; { FileNameNumbersEditEnter }
 
 PROCEDURE TExplorerForm.ListViewFileNameNumbersEditExit(Sender : TObject);
 BEGIN
   { this is added to get rid of the annoying beep }
-  IF FWPMode THEN
-    ListViewFileNameNumbersEdit.ReadOnly := True;
+  ListViewFileNameNumbersEdit.ReadOnly := True;
 END; { FileNameNumbersEditExit }
 
 PROCEDURE TExplorerForm.ListViewFileNameNumbersEditKeyDown(Sender : TObject; VAR Key: Word; ShiftState: TShiftState);
@@ -4253,8 +4252,8 @@ BEGIN
       END;
 end;
 
-PROCEDURE OpenListViewEditPanel;
-{ Opens an edit panel for file renaming }
+PROCEDURE OpenListViewEditPanel(EditNumbers : Boolean);
+{ Opens an edit panel for file renaming. If EditNumbers is true then move the focus to the nunvers edit box. }
 BEGIN
   TRY
     WITH SelectedFileRec DO BEGIN
@@ -4276,8 +4275,11 @@ BEGIN
 
         Editing := True;
 
-        IF ListViewFileNameNumbersEdit.Visible THEN
-          ListViewFileNameNumbersEdit.SetFocus;
+        IF EditNumbers AND ListViewFileNameNumbersEdit.Visible THEN
+          ListViewFileNameNumbersEdit.SetFocus
+        ELSE
+          IF NOT EditNumbers AND ListViewFileNameEdit.Visible THEN
+            ListViewFileNameEdit.SetFocus;
       END; {WITH}
     END; {WITH}
   EXCEPT
@@ -4435,25 +4437,8 @@ BEGIN
     END;
   END;
 
-  IF (Key = 'S') OR (Key ='s')  THEN BEGIN
-//    RenameSpecificFileType(SelectedFileRec.SelectedFile_Name, 'st-');
+  IF (Key = 'S') OR (Key ='s') OR (Key = 'O') OR (Key ='o') OR (Key = 'P') OR (Key ='p') OR (Key = 'G') OR (Key ='g') OR (Key = 'V') OR (Key ='v') THEN
     Key := ' ';
-  END;
-
-  IF (Key = 'O') OR (Key ='o')  THEN BEGIN
-//    RenameSpecificFileType(SelectedFileRec.SelectedFile_Name, 'so-');
-    Key := ' ';
-  END;
-
-  IF (Key = 'P') OR (Key ='p')  THEN BEGIN
-//    RenameSpecificFileType(SelectedFileRec.SelectedFile_Name, 'sp-');
-    Key := ' ';
-  END;
-
-  IF (Key = 'V') OR (Key ='v')  THEN BEGIN
-//    RenameSpecificFileType(SelectedFileRec.SelectedFile_Name, 'v-');
-    Key := ' ';
-  END;
 END;
 
 PROCEDURE StartImageView;
@@ -4549,6 +4534,9 @@ PROCEDURE TExplorerForm.ListViewKeyDown(Sender: TObject; VAR Key: Word; ShiftSta
     CloseFile(UndoOutputFileName);
   END; { TempMoveElapsedTimes }
 
+CONST
+  EditNumbers = True;
+
 TYPE
   ShiftKeysType = (NoShiftKeys, Alt, Shift, Ctrl, ShiftAlt, CtrlShift, CtrlAlt, CtrlAltShift);
 
@@ -4584,6 +4572,35 @@ BEGIN
           IF ssCtrl IN ShiftState THEN
             FindDialog.Execute;
 
+        Ord('G'):
+          IF Copy(SelectedFile_Name, 1, 3) = 'st-' THEN
+            FileRenameProc(Copy(SelectedFile_Name, 4))
+          ELSE
+            FileRenameProc('st-' + SelectedFile_Name);
+
+        Ord('O'):
+          IF Copy(SelectedFile_Name, 1, 3) = 'so-' THEN
+            FileRenameProc(Copy(SelectedFile_Name, 4))
+          ELSE
+            FileRenameProc('so-' + SelectedFile_Name);
+
+        Ord('P'):
+          IF Copy(SelectedFile_Name, 1, 3) = 'sp-' THEN
+            FileRenameProc(Copy(SelectedFile_Name, 4))
+          ELSE
+            FileRenameProc('sp-' + SelectedFile_Name);
+
+        Ord('S'):
+          IF Copy(SelectedFile_Name, Length(SelectedFile_Name) - 1, 2) = '.s' THEN
+            FileRenameProc(Copy(SelectedFile_Name, 1, Length(SelectedFile_Name) - 1))
+          ELSE
+            FileRenameProc(SelectedFile_Name + '.s');
+
+//          IF Copy(SelectedFile_Name, 1, 2) = 's-' THEN
+//            FileRenameProc(Copy(SelectedFile_Name, 3))
+//          ELSE
+//            FileRenameProc('s-' + SelectedFile_Name);
+//
         Ord('T'):
           IF ssCtrl IN ShiftState THEN
             TempMoveElapsedTimes;
@@ -4612,13 +4629,11 @@ BEGIN
                 Showmessage('No file to delete')
               ELSE BEGIN
                 IF (ssAlt IN ShiftState) THEN BEGIN
-                  IF FWPMode THEN BEGIN
-                    { Unrename a file that's marked for deletion }
-                    IF (Copy(SelectedFile_Name, Length(SelectedFile_Name) - 1, 2) = '.d')
-                    OR (Copy(SelectedFile_Name, Length(SelectedFile_Name) - 1, 2) = ' d')
-                    THEN
-                      FileRenameProc(Copy(SelectedFile_Name, 1, Length(SelectedFile_Name) - 2));
-                  END;
+                  { Unrename a file that's marked for deletion }
+                  IF (Copy(SelectedFile_Name, Length(SelectedFile_Name) - 1, 2) = '.d')
+                  OR (Copy(SelectedFile_Name, Length(SelectedFile_Name) - 1, 2) = ' d')
+                  THEN
+                    FileRenameProc(Copy(SelectedFile_Name, 1, Length(SelectedFile_Name) - 2));
                 END ELSE
                   IF NOT (ssShift IN ShiftState) THEN BEGIN
                     IF FWPMode THEN BEGIN
@@ -4681,11 +4696,12 @@ BEGIN
           END;
 
         vk_F2:
-          IF Assigned(ListView.Selected) THEN BEGIN
-            ListView.ReadOnly := False;
-            DeleteKeyTrappedByListView := False;
-            ListView.Selected.EditCaption;
-          END;
+          OpenListViewEditPanel(NOT EditNumbers);
+//          IF Assigned(ListView.Selected) THEN BEGIN
+//            ListView.ReadOnly := False;
+//            DeleteKeyTrappedByListView := False;
+//            ListView.Selected.EditCaption;
+//          END;
 
         Vk_F5:
           RefreshView(Sender);
@@ -4726,8 +4742,7 @@ BEGIN
           StartImageView;
 
         vk_Space:
-          IF FWPMode THEN
-            OpenListViewEditPanel;
+          OpenListViewEditPanel(EditNumbers);
 
         vk_Return:
           ExecuteClick(SelectedFile_Name);
@@ -5066,7 +5081,7 @@ BEGIN
         IdleState := False;
         WITH ListView DO BEGIN
           IF ListView.Selected <> NIL THEN BEGIN
-            IF FWPMode AND (SelectedFile_IsTextFile OR SelectedFile_IsImageFile OR SelectedFile_IsVideoFile) THEN BEGIN
+            IF SelectedFile_IsTextFile OR SelectedFile_IsImageFile OR SelectedFile_IsVideoFile THEN BEGIN
               IF SingleClickMode THEN
                 ExecuteClick(SelectedFile_Name)
               ELSE
@@ -5173,23 +5188,23 @@ BEGIN
 
       END;
 
-      IF FWPMode AND (Button = mbRight) AND NOT (ssShift IN ShiftState) AND NOT (ssCtrl IN ShiftState) THEN BEGIN
-        IF ListItem <> NIL THEN BEGIN
-          LastSelectedItemIndex := ListItem.Index;
-          OpenListViewEditPanel;
-        END;
-      END ELSE
-        IF (NOT FWPMode AND (Button = mbRight))
-        OR (FWPMode AND (Button = mbRight) AND ((ssShift IN ShiftState) OR (ssCtrl IN ShiftState)))
-        THEN BEGIN
-          ListViewFileNameEdit.Text := '';
-          ListViewFileNameNumbersEdit.Text := '';
-          ListViewFileNameEdit.Visible := False;
-          ListViewFileNameNumbersEdit.Visible := False;
-          Editing := False;
-
-          ExplorerForm.ListViewPopupMenu.Popup(ExplorerForm.Left + ListView.Left + X, 40 + Y);
-        END;
+//      IF FWPMode AND (Button = mbRight) AND NOT (ssShift IN ShiftState) AND NOT (ssCtrl IN ShiftState) THEN BEGIN  { +++ }
+//        IF ListItem <> NIL THEN BEGIN
+//          LastSelectedItemIndex := ListItem.Index;
+//          OpenListViewEditPanel;
+//        END;
+//      END ELSE
+//        IF (NOT FWPMode AND (Button = mbRight))
+//        OR (FWPMode AND (Button = mbRight) AND ((ssShift IN ShiftState) OR (ssCtrl IN ShiftState)))
+//        THEN BEGIN
+//          ListViewFileNameEdit.Text := '';
+//          ListViewFileNameNumbersEdit.Text := '';
+//          ListViewFileNameEdit.Visible := False;
+//          ListViewFileNameNumbersEdit.Visible := False;
+//          Editing := False;
+//
+//          ExplorerForm.ListViewPopupMenu.Popup(ExplorerForm.Left + ListView.Left + X, 40 + Y);
+//        END;
 
       IF ssShift IN ShiftState THEN BEGIN
         { Dragging and dropping into another application }
