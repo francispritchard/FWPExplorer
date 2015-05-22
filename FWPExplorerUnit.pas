@@ -40,6 +40,7 @@ TYPE
     ListViewRenameOnAllDrivesPopup: TMenuItem;
     ListViewRenamePopup: TMenuItem;
     MainMenu: TMainMenu;
+    MainMenuDummyBackupOnlyMenuItem: TMenuItem;
     MainMenuEdit: TMenuItem;
     MainMenuEditUndo: TMenuItem;
     MainMenuFile: TMenuItem;
@@ -66,6 +67,8 @@ TYPE
     MainMenuFileSeparator4: TMenuItem;
     MainMenuFileSeparator5: TMenuItem;
     MainMenuFileSeparator6: TMenuItem;
+    MainMenuFileSeparator7: TMenuItem;
+    MainMenuFileSeparator8: TMenuItem;
     MainMenuFileSetUpSuffixes: TMenuItem;
     MainMenuHelp: TMenuItem;
     MainMenuHelpAbout: TMenuItem;
@@ -73,8 +76,8 @@ TYPE
     MainMenuViewRefresh: TMenuItem;
     MainMenuViewShowAttributes: TMenuItem;
     MainMenuViewShowDirectories: TMenuItem;
-    N1: TMenuItem;
     ProgressBar: TProgressBar;
+    RemoveDuplicateSnaps: TMenuItem;
     SingleClickCheckBox: TCheckBox;
     Splitter: TSplitter;
     StopButton: TButton;
@@ -92,7 +95,6 @@ TYPE
     TreeViewPopupMenu: TPopupMenu;
     TreeViewRenamePopup: TMenuItem;
     UserSetIncrement: TMaskEdit;
-    N2: TMenuItem;
     PROCEDURE ClearSnapsCheckBoxClick(Sender: TObject);
     PROCEDURE CompareFileSizeCheckBoxClick(Sender : TObject);
     PROCEDURE CompareFileSizeInDifferentDirectoryCheckBoxClick(Sender: TObject);
@@ -116,7 +118,6 @@ TYPE
     PROCEDURE ListViewFileNameEditEnter(Sender : TObject);
     PROCEDURE ListViewFileNameEditExit(Sender : TObject);
     PROCEDURE ListViewFileNameEditKeyDown(Sender : TObject; VAR Key : Word; ShiftState : TShiftState);
-    PROCEDURE ListViewFileNameEditKeyPress(Sender: TObject; VAR Key: Char);
     PROCEDURE ListViewFileNameNumbersEditEnter(Sender : TObject);
     PROCEDURE ListViewFileNameNumbersEditExit(Sender : TObject);
     PROCEDURE ListViewFileNameNumbersEditKeyDown(Sender : TObject; VAR Key : Word; ShiftState : TShiftState);
@@ -136,6 +137,7 @@ TYPE
     PROCEDURE ListViewRenamePopupClick(Sender : TObject);
     PROCEDURE ListViewSelectItem(Sender : TObject; Item : TListItem; Selected : Boolean);
     PROCEDURE ListViewSingleClick(Sender : TObject);
+    PROCEDURE MainMenuDummyBackupOnlyMenuItemClick(Sender: TObject);
     PROCEDURE MainMenuEditUndoClick(Sender : TObject);
     PROCEDURE MainMenuFileBackupAToMMenuItemClick(Sender: TObject);
     PROCEDURE MainMenuFileBackupAToZMenuItemClick(Sender: TObject);
@@ -159,6 +161,7 @@ TYPE
     PROCEDURE MainMenuViewRefreshClick(Sender : TObject);
     PROCEDURE MainMenuViewShowAttributesClick(Sender: TObject);
     PROCEDURE MainMenuViewShowDirectoriesClick(Sender: TObject);
+    PROCEDURE RemoveDuplicateSnapsClick(Sender: TObject);
     PROCEDURE SingleClickCheckBoxClick(Sender : TObject);
     PROCEDURE StopButtonClick(Sender: TObject);
     PROCEDURE TestCheckBoxClick(Sender: TObject);
@@ -258,6 +261,7 @@ CONST
 
   DoBackupNow = True;
   ForceListing = True;
+  ThreeAsterisks = ' ***';
 
 VAR
   ExplorerForm : TExplorerForm;
@@ -288,6 +292,7 @@ VAR
   DisplayAttributes : Boolean = False;
   DeleteKeyTrappedByListView : Boolean = True;
   DirectoriesChecked : String = '';
+  DoBackupMode : Boolean = False;
   Editing : Boolean = False;
   F2Editing : Boolean = False;
   FileDeleted : Boolean = False;
@@ -348,6 +353,7 @@ VAR
   VideoFileCount : Integer = 0;
   VideoFilesOnlyMode : Boolean = False;
   VLC : Boolean = False;
+  WritingToDebugFile : Boolean = True; //False; { +++ }
   ZoomPlayer : Boolean = False;
 
 IMPLEMENTATION
@@ -363,6 +369,7 @@ TYPE
   TCustomSortStyle = (cssAlphaNum, cssNumeric, cssDateTime, cssRealNumericAlphaNum);
 
 CONST
+  DebugFileNameStr = 'c:\temp\test file.txt';
   DirectoriesSectionStr = 'Directories';
   FormAlignmentSectionstr = 'Form Alignment';
   OptionsSectionStr = 'Options';
@@ -470,27 +477,24 @@ VAR
 
 FUNCTION ImageList_ReplaceIcon(ImageList: THandle; Index: Integer; Icon: hIcon): Integer; STDCALL; EXTERNAL 'comctl32.dll' Name 'ImageList_ReplaceIcon';
 
-PROCEDURE StartDebug;
-{ Erase the debug file ready for more data  }
-BEGIN
-  DeleteFile('c:\test\testoutput.txt');
-END; { StartDebug }
-
-PROCEDURE Debug(DebugStr : String);
-{ Write an error message to a given file }
+PROCEDURE WriteToDebugFile(DebugStr : String);
+{ Open the file, write to it and then close it }
 CONST
-  Append = True;
+  AppendToFile = True;
 
-//VAR
-//  TestOutputFile : Text;
-//  TestoutputfileName : String;
+VAR
+  ErrorMsg : String;
+  TempFile : Text;
+  TempFilename : String;
 
 BEGIN
-//  TestOutputFileName := 'c:\temp\testoutput.txt';
-//  OpenOutputFileOK(TestOutputFile, TestOutputFileName, ErrorMsg, Append);
-//  WriteLn(TestOutPutFile, DebugStr);
-//  CloseOutputFile(TestOutputFile, TestOutputFileName);
-END; { Debug }
+  IF WritingToDebugFile THEN BEGIN
+    TempFilename := DebugFileNameStr;
+    OpenOutputFileOK(TempFile, TempFilename, ErrorMsg, AppendToFile);
+    WriteLn(TempFile, DebugStr);
+    CloseOutputFile(TempFile, TempFileName);
+  END;
+END; { WriteToDebugFile }
 
 PROCEDURE MakeSound;
 { Just goes beep, but enables a breakpoint to be set to catch beeps! }
@@ -498,7 +502,7 @@ BEGIN
   Beep;
 END; { MakeSound }
 
-PROCEDURE TakeSnapWithVLC(PathName, FileName, FileNameWithoutNumbers, StartTimeInSecondsStr, StopTimeInSecondsStr : String; OUT TimedOut : Boolean);
+PROCEDURE TakeSnapWithVLC(PathName, FileName, StartTimeInSecondsStr, StopTimeInSecondsStr : String; OUT TimedOut : Boolean);
 { Press the camera shutter }
 VAR
   ShellStr : WideString;
@@ -520,7 +524,7 @@ BEGIN
                 + ' --stop-time=' + StopTimeInSecondsStr
                 + ' --scene-format=jpg'
                 + ' --scene-ratio=25'
-                + ' --scene-prefix="' + FileNameWithoutNumbers + '"'
+                + ' --scene-prefix="' + FileName + '"'
                 + ' --scene-replace'
                 + ' --scene-path="' + PathName + 'Snaps" vlc://quit';
     ShellStrPtr := Addr(ShellStr[1]);
@@ -556,7 +560,6 @@ VAR
   LastDotPos : Integer;
   SearchRec : TSearchRec;
   TempInt : Integer;
-  TempStr : String;
 
 BEGIN
   IsJPEG := False;
@@ -686,22 +689,22 @@ BEGIN
 END; { FileTypeSuffixFound-3 }
 
 PROCEDURE SetUpSuffixesAndSnapFiles;
-{ Change .mp4s to .mpgs and add a dot between suffix and trailing number if necessary }
+{ Change .mp4s to .mpgs. and checks for duplicate snaps files }
 CONST
   Digits = ['0'..'9'];
 
 VAR
-  FileNameWithoutNumbers : String;
-  Flags : Word;
-  FS : TFileStream;
-  NumberStr : String;
-  SearchRec :TSearchRec;
+  FoundFileList : TStringList;
+  IsJPEG : Boolean;
+  NumberStr1, NumberStr2 : String;
+  OtherSearchRec :TSearchRec;
+  SearchRec : TSearchRec;
+  SnapsFile1, SnapsFile2 : String;
   SuffixLength : Integer;
   SuffixPos : Integer;
-  TypeOfFile : FileType;
 
 BEGIN
-  TRY
+ TRY
     SetCurrentDir(ListViewPathname);
 
     IF FindFirst(ListViewPathName + '*.*', FaAnyFile, SearchRec) = 0 THEN BEGIN
@@ -718,33 +721,72 @@ BEGIN
             ShowMessage('Rename of ' + SearchRec.Name + ' failed - ' + SysErrorMessage(GetLastError));
         END;
 
-        { See if there's a connected snap file and create a dummy one if not - creating a snaps directory if one doesn't exist }
-        IF NOT DirectoryExists(ListViewPathName + 'Snaps') THEN BEGIN
-          IF NOT CreateDir(ListViewPathName + 'Snaps') THEN BEGIN
-            ShowMessage('Cannot create a Snaps directory');
-            Exit;
-          END;
-        END;
-
-        IF FileTypeSuffixFound(SearchRec.Name, TypeOfFile) THEN BEGIN
-          IF TypeOfFile = VideoFile THEN BEGIN
-            RemoveNumbersAndDeletes(SearchRec.Name, FileNameWithOutNumbers, NumberStr);
-            IF NOT GetFileNumberSuffixFromSnapFile(FileNameWithOutNumbers, NumberStr) THEN BEGIN
-              Flags := fmOpenReadWrite;
-              IF NOT FileExists(ListViewPathName + 'Snaps\' + SearchRec.Name + '.txt') THEN
-                Flags := Flags OR fmCreate;
-              FS := TFileStream.Create(ListViewPathName + 'Snaps\' + SearchRec.Name + '.txt', Flags);
-              FS.Free;
-            END;
-          END;
-        END;
-
       { Loop until no more files are found }
       UNTIL FindNext(SearchRec) <> 0;
     END;
+
+    { If there are duplicate snaps files, only keep the one with the largest elapsed time }
+    FoundFileList := TStringList.Create;
+    IF FindFirst(ListViewPathName + 'Snaps\*.*', FaAnyFile, SearchRec) = 0 THEN BEGIN
+      REPEAT
+        IF (SearchRec.Name =  '.') OR (SearchRec.Name =  '..') OR IsDirectory(SearchRec.Attr) THEN
+          Continue;
+
+        IF GetFileNumberSuffixFromSnapFile(SearchRec.Name, IsJPEG, NumberStr1) THEN BEGIN
+          IF NumberStr1 <> '' THEN
+            SnapsFile1 := ReplaceStr(SearchRec.Name, '.' + NumberStr1, '')
+          ELSE
+            SnapsFile1 := SearchRec.Name;
+
+          { Also remove any .txt or .jpg }
+          SnapsFile1 := ReplaceStr(SnapsFile1, '.txt', '');
+          SnapsFile1 := ReplaceStr(SnapsFile1, '.jpg', '');
+
+          { See if there's another file of the same name minus the number suffix or with a different one }
+          IF FindFirst(ListViewPathName + 'Snaps\' + SnapsFile1 + '.*', FaAnyFile, OtherSearchRec) = 0 THEN BEGIN
+            REPEAT
+              IF (OtherSearchRec.Name =  '.') OR (OtherSearchRec.Name =  '..') OR IsDirectory(OtherSearchRec.Attr) OR (OtherSearchRec.Name = SearchRec.Name) THEN
+                Continue;
+
+              IF FoundFileList.IndexOf(SearchRec.Name) > -1 THEN
+                Continue;
+
+              IF GetFileNumberSuffixFromSnapFile(OtherSearchRec.Name, IsJPEG, NumberStr2) THEN BEGIN
+                IF NumberStr2 <> '' THEN
+                  SnapsFile2 := ReplaceStr(OtherSearchRec.Name, '.' + NumberStr2, '')
+                ELSE
+                  SnapsFile2 := OtherSearchRec.Name;
+
+                { Also remove any .txt or .jpg }
+                SnapsFile2 := ReplaceStr(SnapsFile2, '.txt', '');
+                SnapsFile2 := ReplaceStr(SnapsFile2, '.jpg', '');
+
+                IF SnapsFile1 = SnapsFile2 THEN BEGIN
+                  FoundFileList.Add(SearchRec.Name);
+                  IF NumberStr1 = '' THEN
+                    NumberStr1 := '0';
+                  IF NumberStr2 = '' THEN
+                    NumberStr2 := '0';
+                  IF StrToInt(NumberStr1) < StrToInt(NumberStr2) THEN
+                    DeleteFile(ListViewPathName + 'Snaps\' + SearchRec.Name)
+                  ELSE
+                    IF StrToInt(NumberStr1) > StrToInt(NumberStr2) THEN
+                      DeleteFile(ListViewPathName + 'Snaps\' + OtherSearchRec.Name);
+                END;
+              END;
+
+            { Loop until no more files are found }
+            UNTIL FindNext(OtherSearchRec) <> 0;
+          END;
+        END;
+      { Loop until no more files are found }
+      UNTIL FindNext(SearchRec) <> 0;
+    END;
+
+    FoundFileList.Free;
   EXCEPT
     ON E : Exception DO
-      ShowMessage('SetUpSuffixes: ' + E.ClassName +' error raised, with message: ' + E.Message);
+      ShowMessage('SetUpSuffixesAndSnapFiles: ' + E.ClassName +' error raised, with message: ' + E.Message);
   END; {TRY}
 END; { SetUpSuffixesAndSnapFiles }
 
@@ -870,7 +912,7 @@ BEGIN
 
         ShellExecute(ExplorerForm.ListView.Handle,
                      'open',
-                     '"C :\Program Files (x86)\Eps13\bin\epsilon.exe"',
+                     '"C:\Program Files (x86)\Eps13\bin\epsilon.exe"',
                      ShellStrPtr,
                      nil,
                      SW_SHOWNORMAL);
@@ -883,7 +925,7 @@ BEGIN
 
           ShellExecute(ExplorerForm.ListView.Handle,
                        'open',
-                       '"C :\Program Files (x86)\IrfanView\i_view32.exe"',
+                       '"C:\Program Files (x86)\IrfanView\i_view32.exe"',
                        ShellStrPtr,
                        nil,
                        SW_SHOWNORMAL);
@@ -966,10 +1008,14 @@ PROCEDURE RemoveNumbersAndDeletes(SuppliedFileName : String; OUT FileNameWithOut
       END;
     END; {WHILE}
 
-    IF TempSuppliedFileName[I] = '.' THEN
-      TempFileNameWithOutNumbers := Copy(TempSuppliedFileName, 1, I - 1)
-    ELSE
-      TempFileNameWithOutNumbers := Copy(TempSuppliedFileName, 1, I);
+    IF I = 0 THEN
+      TempFileNameWithOutNumbers := TempSuppliedFileName
+    ELSE BEGIN
+      IF TempSuppliedFileName[I] = '.' THEN
+        TempFileNameWithOutNumbers := Copy(TempSuppliedFileName, 1, I - 1)
+      ELSE
+        TempFileNameWithOutNumbers := Copy(TempSuppliedFileName, 1, I);
+    END;
   END; { FindNumberSuffix }
 
 BEGIN
@@ -980,6 +1026,10 @@ BEGIN
          OR (Copy(SuppliedFileName, Length(SuppliedFileName) - 1, 2) = ' d'))
     THEN
       SuppliedFileName := Copy(SuppliedFileName, 1, Length(SuppliedFileName) - 2);
+
+    { Also remove any trailing asterisks inserted in the listitem cartion to indicate the file has a number suufix which will get confused with the elapsed time suffix }
+    IF Pos(ThreeAsterisks, SuppliedFileName) > 0 THEN
+      FileNameWithOutNumbers := ReplaceStr(SuppliedFileName, ThreeAsterisks, '');
 
     FindNumberSuffix(SuppliedFileName, FileNameWithOutNumbers, NumberStr);
   EXCEPT
@@ -1000,17 +1050,17 @@ VAR
   IsVideoFile : Boolean;
   MM : Integer;
   MMStr : String;
-  NeedSnapFile : Boolean;
+  NeedSnapsFile : Boolean;
   NumberStr :String;
   SaveSnapsDirectory : String;
   SearchRec : TSearchRec;
-  SnapFileName : String;
+  SnapsFileName : String;
   SnapsProcessedCount : Integer;
   SS : Integer;
   SSStr : String;
   StartTimeInSecondsStr : String;
   StopTimeInSecondsStr : String;
-  SnapTextFileNumberStr : String;
+  SnapsTextFileNumberStr : String;
   TimedOut : Boolean;
   TimedOutStr : String;
   TotalTimeInSecondsStr : String;
@@ -1036,11 +1086,11 @@ BEGIN
               IF FileTypeSuffixFound(SearchRec.Name, TypeOfFile) AND (TypeOfFile = VideoFile) THEN BEGIN
                 IF GetFileNumberSuffixFromSnapFile(SearchRec.Name, NumberStr) THEN BEGIN
                   IF NumberStr = '' THEN
-                    SnapFileName := SearchRec.Name + '.jpg'
+                    SnapsFileName := SearchRec.Name + '.jpg'
                   ELSE
-                    SnapFileName := SearchRec.Name + '.jpg.' + NumberStr;
+                    SnapsFileName := SearchRec.Name + '.jpg.' + NumberStr;
 
-                  IF FileSearch(SnapFileName, ListViewPathname + 'Snaps') = '' THEN
+                  IF FileSearch(SnapsFileName, ListViewPathname + 'Snaps') = '' THEN
                     Inc(EligibleFiles);
                 END;
               END;
@@ -1083,28 +1133,28 @@ BEGIN
                 END;
               END;
 
-              NeedSnapFile := False;
-              SnapTextFileNumberStr := '';
+              NeedSnapsFile := False;
+              SnapsTextFileNumberStr := '';
               { See if the file already exists, in which case no point in creating it again, unless we're replacing a .txt file with a .jpg file }
               IF NOT GetFileNumberSuffixFromSnapFile(SearchRec.Name, NumberStr) THEN
-                NeedSnapFile := True
+                NeedSnapsFile := True
               ELSE
                 IF FileExists(ListViewPathName + 'Snaps\' + SearchRec.Name + '.txt.' + NumberStr) THEN BEGIN
-                  NeedSnapFile := True;
-                  SnapTextFileNumberStr := NumberStr;
+                  NeedSnapsFile := True;
+                  SnapsTextFileNumberStr := NumberStr;
                 END;
 
-              IF NeedSnapFile THEN BEGIN
+              IF NeedSnapsFile THEN BEGIN
                 Inc(SnapsProcessedCount);
 
-                ExplorerForm.Caption := 'Creating ' + IntToStr(SnapsProcessedCount) + '/' + IntToStr(EligibleFiles) + ': ' + SaveSnapsDirectory + FileNameWithoutNumbers;
+                ExplorerForm.Caption := 'Creating ' + IntToStr(SnapsProcessedCount) + '/' + IntToStr(EligibleFiles) + ': ' + SaveSnapsDirectory + SearchRec.Name;
 
-                TakeSnapWithVLC(SaveSnapsDirectory, SearchRec.Name, FileNameWithoutNumbers, StartTimeInSecondsStr, StopTimeInSecondsStr, TimedOut);
+                TakeSnapWithVLC(SaveSnapsDirectory, SearchRec.Name, StartTimeInSecondsStr, StopTimeInSecondsStr, TimedOut);
                 IF TimedOut THEN
                   TimedOutStr := TimedOutStr + SearchRec.Name + ' ';
 
-                IF SnapTextFileNumberStr <> '' THEN
-                  SnapFileNumberRename(SearchRec.Name, SnapTextFileNumberStr);
+                IF SnapsTextFileNumberStr <> '' THEN
+                  SnapFileNumberRename(SearchRec.Name, SnapsTextFileNumberStr);
 
                 IF FileExists(ListViewPathName + 'Snaps\' + SearchRec.Name + '.txt.' + NumberStr)
                 AND FileExists(ListViewPathName + 'Snaps\' + SearchRec.Name + '.jpg.' + NumberStr)
@@ -1970,17 +2020,19 @@ BEGIN { ListFiles }
                 { Column 0: set caption of item added to ListView }
                 ListItem.Caption := SearchRec1.Name;
 
-                { If the file has numbers as a suffix, note the fact, as if it's a video file, it probably won't work }
-                LastDotPos := LastDelimiter('.', SearchRec1.Name);
-                NumberStr := Copy(SearchRec1.Name, LastDotPos + 1);
-                IF TryStrToInt(NumberStr, TempInt) THEN
-                  ListItem.Caption := ListItem.Caption + ' ***'
-                ELSE BEGIN
-                  { otherwise add any duration data from the equivalent snaps file to the caption }
-                  GetFileNumberSuffixFromSnapFile(SearchRec1.Name, NumberStr);
-                  ListItem.Caption := SearchRec1.Name;
-                  IF NumberStr <> '' THEN
-                    ListItem.Caption := ListItem.Caption + '.' + NumberStr;
+                { If a video file has numbers as a suffix, note the fact, as it probably won't work }
+                IF FileTypeSuffixFound(SearchRec1.Name, TypeOfFile) AND (TypeOfFile = VideoFile) THEN BEGIN
+                  LastDotPos := LastDelimiter('.', SearchRec1.Name);
+                  NumberStr := Copy(SearchRec1.Name, LastDotPos + 1);
+                  IF TryStrToInt(NumberStr, TempInt) THEN
+                    ListItem.Caption := ListItem.Caption + ThreeAsterisks
+                  ELSE BEGIN
+                    { otherwise add any duration data from the equivalent snaps file to the caption }
+                    GetFileNumberSuffixFromSnapFile(SearchRec1.Name, NumberStr);
+                    ListItem.Caption := SearchRec1.Name;
+                    IF NumberStr <> '' THEN
+                      ListItem.Caption := ListItem.Caption + '.' + NumberStr;
+                  END;
                 END;
 
                 { The subitems have to be added in the correct order or size becomes date, etc. }
@@ -2513,6 +2565,82 @@ BEGIN
       ShowMessage('ExplorerFormClose: ' + E.ClassName +' error raised, with message: ' + E.Message);
   END; {TRY}
 END; { ExplorerFormClose }
+
+PROCEDURE TExplorerForm.RemoveDuplicateSnapsClick(Sender: TObject);
+VAR
+  FoundFileList : TStringList;
+  IsJPEG : Boolean;
+  NumberStr1, NumberStr2 : String;
+  OtherSearchRec :TSearchRec;
+  SearchRec : TSearchRec;
+  SnapsFile1, SnapsFile2 : String;
+
+BEGIN
+  TRY
+    { If there are duplicate snaps files, only keep the one with the largest elapsed time }
+    FoundFileList := TStringList.Create;
+    IF FindFirst(ListViewPathName + 'Snaps\*.*', FaAnyFile, SearchRec) = 0 THEN BEGIN
+      REPEAT
+        IF (SearchRec.Name =  '.') OR (SearchRec.Name =  '..') OR IsDirectory(SearchRec.Attr) THEN
+          Continue;
+
+        IF GetFileNumberSuffixFromSnapFile(SearchRec.Name, IsJPEG, NumberStr1) THEN BEGIN
+          IF NumberStr1 <> '' THEN
+            SnapsFile1 := ReplaceStr(SearchRec.Name, '.' + NumberStr1, '')
+          ELSE
+            SnapsFile1 := SearchRec.Name;
+
+          { Also remove any .txt or .jpg }
+          SnapsFile1 := ReplaceStr(SnapsFile1, '.txt', '');
+          SnapsFile1 := ReplaceStr(SnapsFile1, '.jpg', '');
+
+          { see if there's another file minus the number suffix }
+          IF FindFirst(ListViewPathName + 'Snaps\' + SnapsFile1 + '.*', FaAnyFile, OtherSearchRec) = 0 THEN BEGIN
+            REPEAT
+              IF (OtherSearchRec.Name =  '.') OR (OtherSearchRec.Name =  '..') OR IsDirectory(OtherSearchRec.Attr) OR (OtherSearchRec.Name = SearchRec.Name) THEN
+                Continue;
+
+              IF FoundFileList.IndexOf(SearchRec.Name) > -1 THEN
+                Continue;
+
+              IF GetFileNumberSuffixFromSnapFile(OtherSearchRec.Name, IsJPEG, NumberStr2) THEN BEGIN
+                IF NumberStr2 <> '' THEN
+                  SnapsFile2 := ReplaceStr(OtherSearchRec.Name, '.' + NumberStr2, '')
+                ELSE
+                  SnapsFile2 := OtherSearchRec.Name;
+
+                { Also remove any .txt or .jpg }
+                SnapsFile2 := ReplaceStr(SnapsFile2, '.txt', '');
+                SnapsFile2 := ReplaceStr(SnapsFile2, '.jpg', '');
+
+                IF SnapsFile1 = SnapsFile2 THEN BEGIN
+                  FoundFileList.Add(SearchRec.Name);
+                  IF NumberStr1 = '' THEN
+                    NumberStr1 := '0';
+                  IF NumberStr2 = '' THEN
+                    NumberStr2 := '0';
+                  IF StrToInt(NumberStr1) < StrToInt(NumberStr2) THEN
+                    DeleteFile(ListViewPathName + 'Snaps\' + SearchRec.Name)
+                  ELSE
+                    IF StrToInt(NumberStr1) > StrToInt(NumberStr2) THEN
+                      DeleteFile(ListViewPathName + 'Snaps\' + OtherSearchRec.Name);
+                END;
+              END;
+
+            { Loop until no more files are found }
+            UNTIL FindNext(OtherSearchRec) <> 0;
+          END;
+        END;
+      { Loop until no more files are found }
+      UNTIL FindNext(SearchRec) <> 0;
+    END;
+
+    FoundFileList.Free;
+  EXCEPT
+    ON E : Exception DO
+      ShowMessage('RemoveDuplicateSnapsClick: ' + E.ClassName +' error raised, with message: ' + E.Message);
+  END; {TRY}
+END; { RemoveDuplicateSnapsClick }
 
 PROCEDURE TExplorerForm.RefreshView(Sender : TObject);
 BEGIN
@@ -3345,186 +3473,390 @@ BEGIN
     TidyUpSnaps.Enabled := False;
 END; { MainMenuFileClick }
 
-PROCEDURE DoBackup(EnableClearBackupDriveAndDirectoryMenuItem, BackupDriveAndDirectoryMenuItem : TMenuItem; MessageStr : String; VAR BackupDirectory : String;
-                   AZString : String);
+//PROCEDURE DoBackup(EnableClearBackupDriveAndDirectoryMenuItem, BackupDriveAndDirectoryMenuItem : TMenuItem; MessageStr : String; VAR BackupDirectory : String;
+//                   AToZSubStr : String);
+//CONST
+//  AToZStr = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+//
+//VAR
+//  BackupFileName : String;
+//  BackupIncrement : Integer;
+//  BackupIncrementStr : String;
+//  CopyCount : Integer;
+//  DirectoryFound : Boolean;
+//  FileToBackup : Boolean;
+//  FileToBeRenamed : Boolean;
+//  OriginalFileName : String;
+//  SearchRec, BackupSearchRec, BackupSearchRec2 : TSearchRec;
+//  SuffixDelimiter : Integer;
+//  TempBackupFileName : String;
+//  TempNumberStr : String;
+//  TotalFileCount : Integer;
+//  UniqueFileNameFound : Boolean;
+//
+//BEGIN
+//  TRY
+//    WITH explorerForm DO BEGIN
+//      IF BackupDirectory = '' THEN BEGIN
+//        IF MessageDlg(MessageStr + '?', mtConfirmation, [mbYes, mbNo], 0, mbNo) = mrNo THEN
+//          Exit;
+//      END ELSE BEGIN
+//        IF MessageDlg(MessageStr + BackupDirectory + '?', mtConfirmation, [mbYes, mbNo], 0, mbNo) = mrNo THEN
+//          Exit;
+//      END;
+//
+//      IF GetDirectory(BackupDirectory) THEN BEGIN
+//        { store the drive and path name as this might be used elsewhere }
+//        BackupDriveAndPath := ExtractFilePath(BackupDirectory);
+//
+//        CopyCount := 0;
+//        ProgressBar.Visible := True;
+//        EnableClearBackupDriveAndDirectoryMenuItem.Enabled := True;
+//
+//        TotalFileCount := 0;
+//        IF FindFirst(ListViewPathName + '*.*', FaAnyFile, SearchRec) = 0 THEN BEGIN
+//          REPEAT
+//            IF AToZSubStr = 'A-M' THEN
+//              IF CharInSet(SearchRec.Name[1], ['N'..'Z', 'n'..'z']) THEN
+//                Continue;
+//
+//            IF AToZSubStr = 'N-Z' THEN
+//              IF NOT CharInSet(SearchRec.Name[1], ['N'..'Z', 'n'..'z']) THEN
+//                Continue;
+//
+//            { Omit files that are marked as to be deleted }
+//            IF (Copy(SearchRec.Name, Length(SearchRec.Name) - 1, 2) <> '.d') AND (Copy(SearchRec.Name, Length(SearchRec.Name) - 1, 2) <> ' d') THEN
+//              Inc(TotalFileCount);
+//
+//          { loop until no more files are found }
+//          UNTIL (FindNext(SearchRec) <> 0);
+//        END;
+//
+//        IF FindFirst(ListViewPathName + '*.*', FaAnyFile, SearchRec) = 0 THEN BEGIN
+//          ProgressBar.Min := 0;
+//          ProgressBar.Max := TotalFileCount;
+//          ProgressBar.Position := 1;
+//          REPEAT
+//            ProgressBar.StepIt;
+//
+//            IF (SearchRec.Name = '.') OR (SearchRec.Name = '..') OR DirectoryExists(ListViewPathname + SearchRec.Name) THEN
+//              Continue;
+//
+//            { Omit files that are marked as to be deleted }
+//            IF (Copy(SearchRec.Name, Length(SearchRec.Name) - 1, 2) = '.d') OR (Copy(SearchRec.Name, Length(SearchRec.Name) - 1, 2) = ' d') THEN
+//              Continue;
+//
+//            IF AToZSubStr = 'A-M' THEN
+//              IF CharInSet(SearchRec.Name[1], ['N'..'Z', 'n'..'z']) THEN
+//                Continue;
+//
+//            IF AToZSubStr = 'N-Z' THEN
+//              IF NOT CharInSet(SearchRec.Name[1], ['N'..'Z', 'n'..'z']) THEN
+//                Continue;
+//
+//            { Remove numbers or we may copy the same file multiple times }
+//            RemoveNumbersAndDeletes(SearchRec.Name, OriginalFileName, TempNumberStr);
+//
+//            { See if the same file exists in the backup location }
+//            FileToBackup := False;
+//            IF FindFirst(BackupDirectory + '\*' + OriginalFileName + '.???', FaAnyFile, BackupSearchRec) = 0 THEN BEGIN
+//              FileToBackup := True;
+//              REPEAT
+//                IF (BackupSearchRec.Name = '.') OR (BackupSearchRec.Name = '..') OR IsDirectory(BackupSearchRec.Attr) THEN
+//                  Continue;
+//
+//                BackupFileName := BackupSearchRec.Name;
+//
+//                IF SearchRec.Size = BackupSearchRec.Size THEN BEGIN
+//                  { no point in copying an identical file }
+//                  Caption := 'Not copying ' + OriginalFileName + ' - duplicate filename';
+//                  ExplorerMemo.Lines.Add(Caption);
+//                  FileToBackup := False;
+//                END;
+//
+//              { loop until no more files are found }
+//              UNTIL (FindNext(BackupSearchRec) <> 0) OR (FileToBackup = False);
+//            END;
+//
+//            IF FileToBackup THEN BEGIN
+//              { First remove any A-Z suffix }
+//              BackupIncrement := 1;
+//              UniqueFileNameFound := False;
+//              WHILE (BackupIncrement <= 26) AND NOT UniqueFileNameFound DO BEGIN
+//                IF Copy(BackupFileName, Length(BackupFileName) - 1, 2) = '.' + AToZStr[BackupIncrement] THEN BEGIN
+//                  BackupFileName := Copy(BackupFileName, 1, Length(BackupFileName) - 2);
+//                  UniqueFileNameFound := True;
+//                END ELSE
+//                  Inc(BackupIncrement);
+//              END; {WHILE}
+//
+//              { See if we need to add a suffix to distinguish this file from another of the same name }
+//              BackupIncrement := 1;
+//              UniqueFileNameFound := False;
+//              TempBackupFileName := BackupFileName;
+//              WHILE (BackupIncrement <= 26) AND NOT UniqueFileNameFound DO BEGIN
+//                TempBackupFileName := BackupFileName + '.' + AToZStr[BackupIncrement];
+//                IF FileExists(BackupDirectory + '\' + TempBackupFileName) THEN
+//                  ExplorerMemo.Lines.Add(BackupDirectory + '\' + TempBackupFileName + ' already exists')
+//                ELSE BEGIN
+//                  ExplorerMemo.Lines.Add(BackupDirectory + '\' + TempBackupFileName + ' is unique');
+//                  UniqueFileNameFound := True;
+//                  BackupFileName := TempBackupFileName;
+//                END;
+//                Inc(BackupIncrement);
+//              END; {WHILE}
+//
+//              StopButton.Caption := 'Stop Copying';
+//              StopButton.Visible := True;
+//              TRY
+//                Caption := 'Copying ' + ListViewPathName + OriginalFileName + 'to ' + BackupDirectory + '\' + BackupFileName;
+//                TFile.Copy(ListViewPathName + SearchRec.Name, BackupDirectory + '\' + BackupFileName);
+//                Inc(CopyCount);
+//
+//                Application.ProcessMessages;
+//              EXCEPT
+//                ON E : Exception DO BEGIN
+//                  ExplorerMemo.Lines.Add(ListViewPathName + SearchRec.Name + ': filecopy error to ' + BackupDirectory + '\' + BackupFileName + ' :');
+//                  MessageDlg(ListViewPathName + SearchRec.Name + ': filecopy error to ' + BackupDirectory + '\' + BackupFileName + ': ' + E.Message, mtError, [mbOK], 0);
+//                END;
+//              END;
+//              Caption := ExplorerForm.Caption + ' ' + BackupFileName;
+//            END;
+//
+//          { Loop until no more files are found }
+//          UNTIL (FindNext(SearchRec) <> 0) OR Abort;
+//
+//          Caption := IntToStr(CopyCount) + ' files copied';
+//          ProgressBar.Visible := False;
+//          Abort := False;
+//          StopButton.Visible := False;
+//          MakeSound;
+//        END;
+//      END;
+//    END; {WITH}
+//  EXCEPT
+//    ON E : Exception DO
+//      ShowMessage('DoBackup: ' + E.ClassName +' error raised, with message: ' + E.Message);
+//  END; {TRY}
+//END; { DoBackup }
+
+PROCEDURE CheckBeforeBackup(BackupDirectory : String; AToZString : String);
+{ Checks the filenames are unique (if file size is different) before doing a backup }
 CONST
-  AToZ = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  AToZStr = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
 VAR
-  BackupFileName : String;
-  BackupIncrement : Integer;
-  BackupIncrementStr : String;
-  CopyCount : Integer;
-  DirectoryFound : Boolean;
-  FileToBackup : Boolean;
-  FileToBeRenamed : Boolean;
-  OriginalFileName : String;
-  SearchRec, BackupSearchRec, BackupSearchRec2 : TSearchRec;
-  SuffixDelimiter : Integer;
-  TempBackupFileName : String;
-  TempNumberStr : String;
-  TotalFileCount : Integer;
-  UniqueFileNameFound : Boolean;
+  BackupOK : Boolean;
+  CharCount : Integer;
+  ExistingFileSearchRec : TSearchRec;
+  FileAlreadyBackedUpName : String;
+  FileAlreadyBackedUpSize : Int64;
+  FileAlreadyBackedUpSearchRec : TSearchRec;
+  FileToBackUpName : String;
+  FileToBackUpSize : Int64;
+  FileToBackupSearchRec : TSearchRec;
+  FileQueryList : TStringList;
+  FilesToBackupList : TstringList;
+  I : Integer;
+  LastDelimiterPos : Integer;
+  NameValueSeparator : Char;
+  NewFileToBackUpName : String;
 
 BEGIN
-  TRY
-    WITH ExplorerForm DO BEGIN
-      IF BackupDirectory = '' THEN BEGIN
-        IF MessageDlg(MessageStr + '?', mtConfirmation, [mbYes, mbNo], 0, mbNo) = mrNo THEN
-          Exit;
-      END ELSE BEGIN
-        IF MessageDlg(MessageStr + BackupDirectory + '?', mtConfirmation, [mbYes, mbNo], 0, mbNo) = mrNo THEN
-          Exit;
-      END;
+ TRY
+    WriteToDebugFile('------------------------');
+    FileQueryList := TStringList.Create;
+    FilesToBackupList := TStringList.Create;
+    NameValueSeparator := '?';
+    FilesToBackupList.NameValueSeparator := NameValueSeparator;
 
-      IF GetDirectory(BackupDirectory) THEN BEGIN
-        { store the drive and path name as this might be used elsewhere }
-        BackupDriveAndPath := ExtractFilePath(BackupDirectory);
+    IF FindFirst(ListViewPathName + '*.*', FaAnyFile, FileToBackupSearchRec) = 0 THEN BEGIN
+      REPEAT
+        BackupOK := True;
 
-        CopyCount := 0;
-        ProgressBar.Visible := True;
-        EnableClearBackupDriveAndDirectoryMenuItem.Enabled := True;
+        IF (FileToBackupSearchRec.Name =  '.')
+        OR (FileToBackupSearchRec.Name =  '..')
+        OR IsDirectory(FileToBackupSearchRec.Attr)
+        { and omit the debug file which we're potentially currently writing to }
+        OR (FileToBackupSearchRec.Name = DebugFileNameStr)
+        THEN
+          Continue;
 
-        TotalFileCount := 0;
-        IF FindFirst(ListViewPathName + '*.*', FaAnyFile, SearchRec) = 0 THEN BEGIN
+        FileToBackUpName := FileToBackupSearchRec.Name;
+        FileToBackUpSize := FileToBackupSearchRec.Size;
+
+        IF AToZString = 'A-M' THEN
+          IF CharInSet(FileToBackupName[1], ['N'..'Z', 'n'..'z']) THEN
+            Continue;
+
+        IF AToZString = 'N-Z' THEN
+          IF NOT CharInSet(FileToBackupName[1], ['N'..'Z', 'n'..'z']) THEN
+            Continue;
+
+        { See if there any possible duplicates among the files to be backed up }
+        IF FindFirst(ListViewPathName + '*.*', FaAnyFile, ExistingFileSearchRec) = 0 THEN BEGIN
           REPEAT
-            IF AZString = 'A-M' THEN
-              IF CharInSet(SearchRec.Name[1], ['N'..'Z', 'n'..'z']) THEN
-                Continue;
-
-            IF AZString = 'N-Z' THEN
-              IF NOT CharInSet(SearchRec.Name[1], ['N'..'Z', 'n'..'z']) THEN
-                Continue;
-
-            { Omit files that are marked as to be deleted }
-            IF (Copy(SearchRec.Name, Length(SearchRec.Name) - 1, 2) <> '.d') AND (Copy(SearchRec.Name, Length(SearchRec.Name) - 1, 2) <> ' d') THEN
-              Inc(TotalFileCount);
-
-          { loop until no more files are found }
-          UNTIL (FindNext(SearchRec) <> 0);
-        END;
-
-        IF FindFirst(ListViewPathName + '*.*', FaAnyFile, SearchRec) = 0 THEN BEGIN
-          ProgressBar.Min := 0;
-          ProgressBar.Max := TotalFileCount;
-          ProgressBar.Position := 1;
-          REPEAT
-            ProgressBar.StepIt;
-
-            IF (SearchRec.Name = '.') OR (SearchRec.Name = '..') OR DirectoryExists(ListViewPathname + SearchRec.Name) THEN
-              Continue;
-
-            { Omit files that are marked as to be deleted }
-            IF (Copy(SearchRec.Name, Length(SearchRec.Name) - 1, 2) = '.d') OR (Copy(SearchRec.Name, Length(SearchRec.Name) - 1, 2) = ' d') THEN
-              Continue;
-
-            IF AZString = 'A-M' THEN
-              IF CharInSet(SearchRec.Name[1], ['N'..'Z', 'n'..'z']) THEN
-                Continue;
-
-            IF AZString = 'N-Z' THEN
-              IF NOT CharInSet(SearchRec.Name[1], ['N'..'Z', 'n'..'z']) THEN
-                Continue;
-
-            { Remove numbers or we may copy the same file multiple times }
-            RemoveNumbersAndDeletes(SearchRec.Name, OriginalFileName, TempNumberStr);
-
-            { See if the same file exists in the backup location }
-            FileToBackup := False;
-            IF FindFirst(BackupDirectory + '\*' + OriginalFileName + '.???', FaAnyFile, BackupSearchRec) = 0 THEN BEGIN
-              FileToBackup := True;
-              REPEAT
-                IF (BackupSearchRec.Name = '.') OR (BackupSearchRec.Name = '..') OR IsDirectory(BackupSearchRec.Attr) THEN
-                  Continue;
-
-                BackupFileName := BackupSearchRec.Name;
-
-                IF SearchRec.Size = BackupSearchRec.Size THEN BEGIN
-                  { no point in copying an identical file }
-                  Caption := 'Not copying ' + OriginalFileName + ' - duplicate filename';
-                  ExplorerMemo.Lines.Add(Caption);
-                  FileToBackup := False;
-                END;
-
-              { loop until no more files are found }
-              UNTIL (FindNext(BackupSearchRec) <> 0) OR (FileToBackup = False);
-            END;
-
-            IF FileToBackup THEN BEGIN
-              { First remove any A-Z suffix }
-              BackupIncrement := 1;
-              UniqueFileNameFound := False;
-              WHILE (BackupIncrement <= 26) AND NOT UniqueFileNameFound DO BEGIN
-                IF Copy(BackupFileName, Length(BackupFileName) - 1, 2) = '.' + AToZ[BackupIncrement] THEN BEGIN
-                  BackupFileName := Copy(BackupFileName, 1, Length(BackupFileName) - 2);
-                  UniqueFileNameFound := True;
-                END ELSE
-                  Inc(BackupIncrement);
-              END; {WHILE}
-
-              { See if we need to add a suffix to distinguish this file from another of the same name }
-              BackupIncrement := 1;
-              UniqueFileNameFound := False;
-              TempBackupFileName := BackupFileName;
-              WHILE (BackupIncrement <= 26) AND NOT UniqueFileNameFound DO BEGIN
-                TempBackupFileName := BackupFileName + '.' + AToZ[BackupIncrement];
-                IF FileExists(BackupDirectory + '\' + TempBackupFileName) THEN
-                  ExplorerMemo.Lines.Add(BackupDirectory + '\' + TempBackupFileName + ' already exists')
-                ELSE BEGIN
-                  ExplorerMemo.Lines.Add(BackupDirectory + '\' + TempBackupFileName + ' is unique');
-                  UniqueFileNameFound := True;
-                  BackupFileName := TempBackupFileName;
-                END;
-                Inc(BackupIncrement);
-              END; {WHILE}
-
-              StopButton.Caption := 'Stop Copying';
-              StopButton.Visible := True;
-              TRY
-                Caption := 'Copying ' + ListViewPathName + OriginalFileName + 'to ' + BackupDirectory + '\' + BackupFileName;
-                TFile.Copy(ListViewPathName + SearchRec.Name, BackupDirectory + '\' + BackupFileName);
-                Inc(CopyCount);
-
-                Application.ProcessMessages;
-              EXCEPT
-                ON E : Exception DO BEGIN
-                  ExplorerMemo.Lines.Add(ListViewPathName + SearchRec.Name + ': filecopy error to ' + BackupDirectory + '\' + BackupFileName + ' :');
-                  MessageDlg(ListViewPathName + SearchRec.Name + ': filecopy error to ' + BackupDirectory + '\' + BackupFileName + ': ' + E.Message, mtError, [mbOK], 0);
+IF ExistingFileSearchRec.Name = 'test file 6avi' then
+null;
+            IF (UpperCase(FileToBackUpName) <> UpperCase(ExistingFileSearchRec.Name))
+            AND (FileQueryList.IndexOf(ExistingFileSearchRec.Name) > -1)
+            THEN BEGIN
+              IF NOT DoBackupMode THEN BEGIN
+                IF FileToBackUpSize = ExistingFileSearchRec.Size THEN BEGIN
+                  WriteToDebugFile('Query (1) re file "' + FileToBackupName + '" as it is equal in size to file "'
+                                   + ExistingFileSearchRec.Name + '": size=' + IntToStr(ExistingFileSearchRec.Size));
+                  FileQueryList.Add(ExistingFileSearchRec.Name);
                 END;
               END;
-              Caption := ExplorerForm.Caption + ' ' + BackupFileName;
             END;
 
-          { Loop until no more files are found }
-          UNTIL (FindNext(SearchRec) <> 0) OR Abort;
-
-          Caption := IntToStr(CopyCount) + ' files copied';
-          ProgressBar.Visible := False;
-          Abort := False;
-          StopButton.Visible := False;
-          MakeSound;
+          { Loop until no more files to be backed up are found }
+          UNTIL FindNext(ExistingFileSearchRec) <> 0;
         END;
+
+        { Omit files that are marked as to be deleted }
+        IF (Copy(FileToBackupName, Length(FileToBackupName) - 1, 2) = '.d')
+        OR (Copy(FileToBackupName, Length(FileToBackupName) - 1, 2) = ' d')
+        OR (Copy(FileToBackupName, Length(FileToBackupName) - 3, 4) = '.lnk')
+        THEN BEGIN
+          WriteToDebugFile('Omitting "' + FileToBackupName + '"');
+          Continue;
+        END;
+
+        { Remove any indication that files should be saved }
+        IF Pos('.s', FileToBackupName) > 0 THEN BEGIN
+          WriteToDebugFile('Renaming .s file "' + FileToBackupName + '"');
+          FileToBackupName := ReplaceStr(FileToBackupName, '.s', '');
+        END;
+
+        IF FindFirst(BackupDirectory + '\*.*', FaAnyFile, FileAlreadyBackedUpSearchRec) = 0 THEN BEGIN
+          REPEAT
+            IF (FileAlreadyBackedUpSearchRec.Name =  '.') OR (FileAlreadyBackedUpSearchRec.Name =  '..') OR IsDirectory(FileAlreadyBackedUpSearchRec.Attr) THEN
+              Continue;
+
+            FileAlreadyBackedUpName := FileAlreadyBackedUpSearchRec.Name;
+            FileAlreadyBackedUpSize := FileAlreadyBackedUpSearchRec.Size;
+
+            { Check whether any file on backup drive has the same name and same file size as this one - if so, do nothing }
+            IF (UpperCase(FileToBackupName) = UpperCase(FileAlreadyBackedUpName)) AND (FileToBackUpSize = FileAlreadyBackedUpSize) THEN BEGIN
+              WriteToDebugFile('Omitting "' + FileToBackupName + '" as equal to "' + FileAlreadyBackedUpName + '" in name and size');
+              BackupOK := False;
+              Continue;
+            END ELSE
+              IF NOT DoBackupMode THEN BEGIN
+                IF FileToBackUpSize = FileAlreadyBackedUpSize THEN
+                  WriteToDebugFile('Query (2) re file "' + FileToBackupName + '" as it is equal in size to file "'
+                                   + FileAlreadyBackedUpName + '": size=' + IntToStr(FileToBackupSize));
+              END;
+
+            { check whether any file on backup drive has a different file size but a variant of the name (with a (1) or "A" or "B", etc.) suffix) and, if so, rename this
+              file to be the same as the file on the backup drive
+            }
+            IF BackupOK THEN BEGIN
+            END;
+
+            { Check whether any file on the backup drive has the same name as this one, or a variant thereof, and, if so, rename this one by adding an "A" or "B" etc.
+              suffix
+            }
+            IF BackupOK THEN BEGIN
+              IF UpperCase(FileToBackupName) = UpperCase(FileAlreadyBackedUpName) THEN BEGIN
+                { find a replacement name }
+                CharCount := 1;
+                REPEAT
+                  LastDelimiterPos := LastDelimiter('.', FileToBackupName);
+                  IF LastDelimiterPos = 0 THEN
+                    NewFileToBackupName := FileToBackupName + '.' + AToZStr[CharCount]
+                  ELSE
+                    NewFileToBackupName := Copy(FileToBackupName, 1, LastDelimiterPos) + AToZStr[CharCount] + '.' + Copy(FileToBackupName, LastDelimiterPos + 1);
+                  Inc(CharCount);
+                UNTIL (NOT FileExists(BackupDirectory + '\' + NewFileToBackupName)) OR (CharCount > 26);
+
+                IF Charcount > 26 THEN
+                  BackupOK := False
+                ELSE BEGIN
+                  WriteToDebugFile('Renaming "' + FileToBackupName + '" to "' + NewFileToBackUpName
+                                   + '" before backing it up as it has the same name as "' + FileAlreadyBackedUpName + '"');
+                  IF RenameFile(ListViewPathName + FileToBackupName, ListViewPathName + NewFileToBackupName) THEN
+                    FileToBackupName := NewFileToBackUpName
+                  ELSE BEGIN
+                    ShowMessage('Error in renaming ' + ListViewPathName + FileToBackupName + 'as ' + ListViewPathName + NewFileToBackupName);
+                    BackupOK := False;
+                  END;
+                END;
+              END;
+            END;
+
+          { Loop until no more files already backed up are found }
+          UNTIL (FindNext(FileAlreadyBackedUpSearchRec) <> 0) OR NOT BackupOK;
+        END;
+
+        { Store the file names in a string list to enable us to count them and use a progress bar }
+        IF BackupOK THEN
+          FilesToBackupList.Add(ListViewPathName + FileToBackupName + NameValueSeparator + BackupDirectory + '\' + FileToBackupName);
+
+      { Loop until no more files to be backed up are found }
+      UNTIL FindNext(FileToBackupSearchRec) <> 0;
+    END;
+
+    { Now do the backup! }
+    WITH ExplorerForm DO BEGIN
+      IF FilesToBackupList.Count = 0 THEN
+        Caption := 'No files to copy'
+      ELSE BEGIN
+        ProgressBar.Visible := True;
+        ProgressBar.Min := 0;
+        ProgressBar.Max := FilesToBackupList.Count;
+        ProgressBar.Position := 1;
+
+        FOR I := 0 TO FilesToBackupList.Count - 1 DO BEGIN
+          ProgressBar.StepIt;
+
+          IF NOT DoBackupMode THEN
+            WriteToDebugFile('Would be copying ' + IntToStr(I + 1) + '/' + IntToStr(FilesToBackupList.Count) + ': ' + FilesToBackupList.Names[I]
+                             + ' to ' + BackupDirectory)
+          ELSE BEGIN
+            Caption := 'Copying ' + IntToStr(I + 1) + '/' + IntToStr(FilesToBackupList.Count) + ': ' + FilesToBackupList.Names[I] + ' to ' + BackupDirectory;
+            WriteToDebugFile('Copying ' + IntToStr(I + 1) + '/' + IntToStr(FilesToBackupList.Count) + ': ' + FilesToBackupList.Names[I] + ' to ' + BackupDirectory);
+
+            TRY
+              TFile.Copy(FilesToBackupList.Names[I], FilesToBackupList.ValueFromIndex[I]);
+            EXCEPT
+              ON E : Exception DO BEGIN
+                WriteToDebugFile(ListViewPathName + FilesToBackupList.Names[I] + ': filecopy error to ' + BackupDirectory);
+                MessageDlg(ListViewPathName + FilesToBackupList.Names[I] + ': filecopy error to ' + BackupDirectory + ': ' + E.Message, mtError, [mbOK], 0);
+              END;
+            END;
+          END;
+        END; {FOR}
+        Caption := 'Copying concluded';
+        ProgressBar.Visible := False;
       END;
     END; {WITH}
+
+    ExplorerForm.MainMenuDummyBackupOnlyMenuItem.Checked := True;
+
+    FileQueryList.Free;
+    FilesToBackupList.Free;
   EXCEPT
     ON E : Exception DO
-      ShowMessage('DoBackup: ' + E.ClassName +' error raised, with message: ' + E.Message);
+      ShowMessage('CheckBeforeBackup: ' + E.ClassName +' error raised, with message: ' + E.Message);
   END; {TRY}
-END; { DoBackup }
+END; { CheckBeforeBackup }
 
 PROCEDURE SetUpBackupAToZMenuItems(CreatingBackup : Boolean);
 BEGIN
   WITH ExplorerForm DO BEGIN
     IF BackupAToZDirectory <> '' THEN BEGIN
       IF CreatingBackup THEN
-        DoBackup(MainMenuFileClearBackupAToZDirectoryMenuItem, MainMenuFileBackupAToZMenuItem, 'Backup A-Z To ', BackupAToZDirectory, 'A-Z');
-      MainMenuFileBackupAToZMenuItem.Caption := 'Backup A-Z To ' + BackupAToZDirectory;
-      TreeViewBackupAToZMenuItemPopup.Caption := 'Backup A-Z To ' + BackupAToZDirectory;
+        CheckBeforeBackup(BackupAToZDirectory, 'A-Z');
+//        DoBackup(MainMenuFileClearBackupAToZDirectoryMenuItem, MainMenuFileBackupAToZMenuItem, 'Backup A-Z To ', BackupAToZDirectory, 'A-Z');
+      MainMenuFileBackupAToZMenuItem.Caption := 'Dummy Backup A-Z To ' + BackupAToZDirectory;
+      TreeViewBackupAToZMenuItemPopup.Caption := 'Dummy Backup A-Z To ' + BackupAToZDirectory;
     END ELSE BEGIN
-      IF CreatingBackup THEN
-        DoBackup(MainMenuFileClearBackupAToZDirectoryMenuItem, MainMenuFileBackupAToZMenuItem, 'Backup A-Z', BackupAToZDirectory, 'A-Z');
-      MainMenuFileBackupAToZMenuItem.Caption := 'Backup A-Z';
-      TreeViewBackupAToZMenuItemPopup.Caption := 'Backup A-Z';
+//      IF CreatingBackup THEN
+//        DoBackup(MainMenuFileClearBackupAToZDirectoryMenuItem, MainMenuFileBackupAToZMenuItem, 'Backup A-Z', BackupAToZDirectory, 'A-Z');
+//      MainMenuFileBackupAToZMenuItem.Caption := 'Dummy Backup A-Z';
+//      TreeViewBackupAToZMenuItemPopup.Caption := 'Dummy Backup A-Z';
     END;
   END; {WITH}
 END; { SetUpBackupAToZMenuItems }
@@ -3533,15 +3865,15 @@ PROCEDURE SetUpBackupAToMMenuItems(CreatingBackup : Boolean);
 BEGIN
   WITH ExplorerForm DO BEGIN
     IF BackupAToMDirectory <> '' THEN BEGIN
-      IF CreatingBackup THEN
-        DoBackup(MainMenuFileClearBackupAToMDirectoryMenuItem, MainMenuFileBackupAToMMenuItem, 'Backup A-M To ', BackupAToMDirectory, 'A-M');
-      MainMenuFileBackupAToMMenuItem.Caption := 'Backup A-M To ' + BackupAToMDirectory;
-      TreeViewBackupAToMMenuItemPopup.Caption := 'Backup A-M To ' + BackupAToMDirectory;
+//      IF CreatingBackup THEN
+//        DoBackup(MainMenuFileClearBackupAToMDirectoryMenuItem, MainMenuFileBackupAToMMenuItem, 'Backup A-M To ', BackupAToMDirectory, 'A-M');
+//      MainMenuFileBackupAToMMenuItem.Caption := 'Dummy Backup A-M To ' + BackupAToMDirectory;
+//      TreeViewBackupAToMMenuItemPopup.Caption := 'Dummy Backup A-M To ' + BackupAToMDirectory;
     END ELSE BEGIN
-      IF CreatingBackup THEN
-        DoBackup(MainMenuFileClearBackupAToMDirectoryMenuItem, MainMenuFileBackupAToMMenuItem, 'Backup A-M', BackupAToMDirectory, 'A-M');
-      MainMenuFileBackupAToMMenuItem.Caption := 'Backup A-M';
-      TreeViewBackupAToMMenuItemPopup.Caption := 'Backup A-M';
+//      IF CreatingBackup THEN
+//        DoBackup(MainMenuFileClearBackupAToMDirectoryMenuItem, MainMenuFileBackupAToMMenuItem, 'Backup A-M', BackupAToMDirectory, 'A-M');
+//      MainMenuFileBackupAToMMenuItem.Caption := 'Dummy Backup A-M';
+//      TreeViewBackupAToMMenuItemPopup.Caption := 'Dummy Backup A-M';
     END;
   END; {WITH}
 END; { SetUpBackupAToMMenuItems }
@@ -3550,15 +3882,15 @@ PROCEDURE SetUpBackupNToZMenuItems(CreatingBackup : Boolean);
 BEGIN
   WITH ExplorerForm DO BEGIN
     IF BackupNToZDirectory <> '' THEN BEGIN
-      IF CreatingBackup THEN
-        DoBackup(MainMenuFileClearBackupNToZDirectoryMenuItem, MainMenuFileBackupNToZMenuItem, 'Backup N-Z To ', BackupNToZDirectory, 'N-Z');
-      MainMenuFileBackupNToZMenuItem.Caption := 'Backup N-Z To ' + BackupNToZDirectory;
-      TreeViewBackupNToZMenuItemPopup.Caption := 'Backup N-Z To ' + BackupNToZDirectory;
+//      IF CreatingBackup THEN
+//        DoBackup(MainMenuFileClearBackupNToZDirectoryMenuItem, MainMenuFileBackupNToZMenuItem, 'Backup N-Z To ', BackupNToZDirectory, 'N-Z');
+//      MainMenuFileBackupNToZMenuItem.Caption := 'Dummy Backup N-Z To ' + BackupNToZDirectory;
+//      TreeViewBackupNToZMenuItemPopup.Caption := 'Dummy Backup N-Z To ' + BackupNToZDirectory;
     END ELSE BEGIN
-      IF CreatingBackup THEN
-        DoBackup(MainMenuFileClearBackupNToZDirectoryMenuItem, MainMenuFileBackupNToZMenuItem, 'Backup N-Z', BackupNToZDirectory, 'N-Z');
-      MainMenuFileBackupNToZMenuItem.Caption := 'Backup N-Z';
-      TreeViewBackupNToZMenuItemPopup.Caption := 'Backup N-Z';
+//      IF CreatingBackup THEN
+//        DoBackup(MainMenuFileClearBackupNToZDirectoryMenuItem, MainMenuFileBackupNToZMenuItem, 'Backup N-Z', BackupNToZDirectory, 'N-Z');
+//      MainMenuFileBackupNToZMenuItem.Caption := 'Dummy Backup N-Z';
+//      TreeViewBackupNToZMenuItemPopup.Caption := 'Dummy Backup N-Z';
     END;
   END; {WITH}
 END; { SetUpBackupNToZMenuItems }
@@ -3789,8 +4121,8 @@ BEGIN
     FillChar(Fos, SizeOf(Fos), 0);
     WITH Fos DO BEGIN
       Wnd := 0;
-      wFunc  := FO_DELETE;
-      pFrom  := PChar(TempFileName + #0 + #0);
+      wFunc := FO_DELETE;
+      pFrom := PChar(TempFileName + #0 + #0);
       fFlags := FOF_ALLOWUNDO OR FOF_NOCONFIRMATION OR FOF_SILENT;
     END; {WITH}
 
@@ -4062,10 +4394,6 @@ BEGIN
     END;
   END; {WITH}
 END; { FileNameEditKeyDown }
-
-PROCEDURE TExplorerForm.ListViewFileNameEditKeyPress(Sender: TObject; VAR Key: Char);
-BEGIN
-END; { FileNameEditKeyPress }
 
 PROCEDURE TExplorerForm.ListViewFileNameNumbersEditEnter(Sender : TObject);
 BEGIN
@@ -4451,7 +4779,7 @@ VAR
 
 BEGIN
   IF ImageViewDirectory = '' THEN BEGIN
-    IF MessageDlg('Create ImageView Directory?', mtConfirmation, [mbYes, mbNo], 0, mbNo) = mrNo THEN
+    IF MessageDlg('Note where ImageView is?', mtConfirmation, [mbYes, mbNo], 0, mbNo) = mrNo THEN
       Exit;
   END;
 
@@ -4475,13 +4803,129 @@ BEGIN
       SortStr := 'TypeSort';
   END; {CASE}
 
-  ShellStr := '/dir=' + ListViewPathName + ' /archive=' + ArchiveDirectory + ' /move1=' + MoveDirectory1 + ' /move2=' + MoveDirectory2 + ' /sort=' + SortStr;
+  ShellStr := '/dir=' + ListViewPathName + ' /archive=' + ArchiveDirectory + ' /move1=' + MoveDirectory1 + ' /move2=' + MoveDirectory2 + ' /sort=' + SortStr
+              + ' /increment=' + IntToStr(UserIncrement);
   ShellStrPtr := Addr(ShellStr[1]);
 
   DirStr := '"' + ImageViewDirectory + '\ImageView.exe"';
   DirStrPtr := Addr(DirStr[1]);
   ShellExecute(Application.Handle, 'open', DirStrPtr, ShellStrPtr, NIL, SW_SHOWNORMAL);
 END; { StartImageView }
+
+PROCEDURE TempFilesRename;
+CONST
+  AToZ = 'abcdefghijklmnopqrstuvwxyz';
+
+VAR
+  FirstAndLastFileNamesWereTheSame : Boolean;
+  FirstFileLastDelimiterPos : Integer;
+  FirstFileName : String;
+  FirstFileSuffix : String;
+  FirstFileNameToCompare : String;
+  I : Integer;
+  LastFile : Boolean;
+  NewFirstFileName : String;
+  NewFirstFileNameNum : Integer;
+  SameFileNum : Integer;
+  SecondFileLastDelimiterPos : Integer;
+  SecondFileName : String;
+  SecondFileNameToCompare : String;
+
+  FUNCTION ConvertNumberToFileName(NewFileNameNum : Integer) : String;
+  BEGIN
+    Result := IntToStr(NewFileNameNum);
+    REPEAT
+      Result := '0' + Result;
+    UNTIL Length(Result) = 5;
+  END; { ConvertNumberToFileName }
+
+BEGIN
+  TRY
+    { read in first file name }
+    WITH ExplorerForm DO BEGIN
+      I := 1;
+      FirstAndLastFileNamesWereTheSame := False;
+      SameFileNum := 0;
+      NewFirstFileNameNum := 0;
+      LastFile := False;
+      WHILE (I <= ListView.Items.Count - 1) OR LastFile DO BEGIN
+        IF I > ListView.Items.Count THEN
+          Exit;
+        FirstFileName := ListView.Items[I - 1].Caption;
+        FirstFileLastDelimiterPos := LastDelimiter('.', FirstFileName);
+        IF FirstFileLastDelimiterPos = 0 THEN
+          FirstFileSuffix := ''
+        ELSE
+          FirstFileSuffix := Copy(FirstFileName, FirstFileLastDelimiterPos);
+        FirstFileLastDelimiterPos := LastDelimiter('_', FirstFileName);
+
+        IF (Pos('TUMBLR', UpperCase(FirstFileName)) > 0) AND (FirstFileLastDelimiterPos <> 0) THEN BEGIN
+          IF NOT LastFile THEN BEGIN
+            SecondFileName := ListView.Items[I].Caption;
+            NewFirstFileName := '';
+          END;
+
+          IF LastFile THEN BEGIN
+            IF SameFileNum = 0 THEN BEGIN
+              Inc(NewFirstFileNameNum);
+              NewFirstFileName := ConvertNumberToFileName(NewFirstFileNameNum);
+            END ELSE BEGIN
+              Inc(SameFileNum);
+              NewFirstFileName := ConvertNumberToFileName(NewFirstFileNameNum) + AToZ[SameFileNum];
+            END;
+            LastFile := False;
+          END ELSE BEGIN
+            SecondFileName := ListView.Items[I].Caption;
+            SecondFileLastDelimiterPos := LastDelimiter('_', SecondFileName);
+
+            FirstFileNameToCompare := Copy(FirstFileName, 1, FirstFileLastDelimiterPos - 2);
+            IF Copy(FirstFileName, FirstFileLastDelimiterPos - 2, 1) = '1' THEN
+              FirstFileNameToCompare := Copy(FirstFileName, 1, FirstFileLastDelimiterPos - 3);
+
+            SecondFileNameToCompare := Copy(SecondFileName, 1, SecondFileLastDelimiterPos - 2);
+            IF Copy(SecondFileName, SecondFileLastDelimiterPos - 2, 1) = '1' THEN
+              SecondFileNameToCompare := Copy(SecondFileName, 1, SecondFileLastDelimiterPos - 3);
+
+            IF FirstFileNameToCompare <> SecondFileNameToCompare THEN BEGIN
+              IF FirstAndLastFileNamesWereTheSame THEN BEGIN
+                Inc(SameFileNum);
+                NewFirstFileName := ConvertNumberToFileName(NewFirstFileNameNum) + AToZ[SameFileNum];
+                FirstAndLastFileNamesWereTheSame := False;
+              END;
+              SameFileNum := 0;
+            END ELSE BEGIN
+              FirstAndLastFileNamesWereTheSame := True;
+              IF SameFileNum = 0 THEN
+                Inc(NewFirstFileNameNum);
+
+              Inc(SameFileNum);
+              NewFirstFileName := ConvertNumberToFileName(NewFirstFileNameNum) + AToZ[SameFileNum];
+            END;
+
+            IF (SameFileNum = 0) AND (NewFirstFileName = '') THEN BEGIN
+              Inc(NewFirstFileNameNum);
+              NewFirstFileName := ConvertNumberToFileName(NewFirstFileNameNum);
+            END;
+          END;
+
+          IF NOT RenameFile(ListView.Items[I - 1].Caption, NewFirstFileName + FirstFileSuffix) THEN
+            ShowMessage('Problem in renaming "' + ListView.Items[I - 1].Caption + '" to "' + NewFirstFileName + '"');
+
+          FirstFileName := SecondFileName;
+          NewFirstFileName := '';
+
+        END;
+        Inc(I);
+
+        IF I >= ListView.Items.Count THEN
+          LastFile := True;
+      END; {WHILE}
+    END; {WITH}
+  EXCEPT
+    ON E : Exception DO
+      ShowMessage('TempFilesRename: ' + E.ClassName +' error raised, with message: ' + E.Message);
+  END; {TRY}
+END; { TempFilesRename }
 
 PROCEDURE TExplorerForm.ListViewKeyDown(Sender: TObject; VAR Key: Word; ShiftState: TShiftState);
 
@@ -4506,21 +4950,21 @@ PROCEDURE TExplorerForm.ListViewKeyDown(Sender: TObject; VAR Key: Word; ShiftSta
         RemoveNumbersAndDeletes(SearchRec.Name, FileNameWithoutNumbers, NumberStr);
 
         IF NumberStr <> '' THEN BEGIN
-          IF FileExists(ListViewPathName + 'Snaps\' + FileNameWithoutNumbers + '.jpg') THEN BEGIN
+          IF FileExists(ListViewPathName + 'Snaps\' + SearchRec.Name + '.jpg') THEN BEGIN
             WriteLn(OutputFileName, 'rename "'
                                     + ListViewPathName + SearchRec.Name + '" "'
                                     + FileNameWithoutNumbers + '"');
             WriteLn(OutputFileName, 'rename "'
-                                    + ListViewPathName + 'snaps\' + FileNameWithoutNumbers + '.jpg' + '" "'
-                                    + FileNameWithoutNumbers + '.jpg.' + NumberStr + '"');
+                                    + ListViewPathName + 'snaps\' + SearchRec.Name + '.jpg' + '" "'
+                                    + SearchRec.Name + '.jpg.' + NumberStr + '"');
 
             WriteLn(UndoOutputFileName, 'rename "'
-                                        + ListViewPathName + FileNameWithoutNumbers + '" "'
+                                        + ListViewPathName + SearchRec.Name + '" "'
                                         + SearchRec.Name + '"');
 
             WriteLn(UndoOutputFileName, 'rename "'
-                                        + ListViewPathName + 'snaps\' + FileNameWithoutNumbers + '.jpg.' + NumberStr + '" "'
-                                        + FileNameWithoutNumbers + '.jpg"');
+                                        + ListViewPathName + 'snaps\' + SearchRec.Name + '.jpg.' + NumberStr + '" "'
+                                        + SearchRec.Name + '.jpg"');
           END;
         END;
 
@@ -4592,15 +5036,10 @@ BEGIN
 
         Ord('S'):
           IF Copy(SelectedFile_Name, Length(SelectedFile_Name) - 1, 2) = '.s' THEN
-            FileRenameProc(Copy(SelectedFile_Name, 1, Length(SelectedFile_Name) - 1))
+            FileRenameProc(Copy(SelectedFile_Name, 1, Length(SelectedFile_Name) - 2))
           ELSE
             FileRenameProc(SelectedFile_Name + '.s');
 
-//          IF Copy(SelectedFile_Name, 1, 2) = 's-' THEN
-//            FileRenameProc(Copy(SelectedFile_Name, 3))
-//          ELSE
-//            FileRenameProc('s-' + SelectedFile_Name);
-//
         Ord('T'):
           IF ssCtrl IN ShiftState THEN
             TempMoveElapsedTimes;
@@ -4610,6 +5049,20 @@ BEGIN
             FileRenameProc(Copy(SelectedFile_Name, 3))
           ELSE
             FileRenameProc('v-' + SelectedFile_Name);
+
+        Ord('W'):
+          { for debugging }
+          BEGIN
+            IF WritingToDebugFile THEN
+              WritingToDebugFile := False
+            ELSE
+              WritingToDebugFile := True;
+            ExplorerForm.Caption := 'WritingToDebugFile=' + BoolToStr(WritingToDebugFile, True);
+          END;
+
+        Ord('X'):
+          IF ssCtrl IN ShiftState THEN
+            TempFilesRename;
 
         Ord('Z'):
           IF ZoomPlayerUnitForm.Visible THEN
@@ -4638,7 +5091,7 @@ BEGIN
                   IF NOT (ssShift IN ShiftState) THEN BEGIN
                     IF FWPMode THEN BEGIN
                       { Rename the files adding a "d" for future deletion by hand }
-                      FileRenameProc(SelectedFile_Name+ '.d')
+                      FileRenameProc(SelectedFile_Name + '.d')
                     END ELSE BEGIN
                       CASE MessageDlg('Move "' + SelectedFile_Name + '" to Recycle Bin?', mtConfirmation, [mbYes, mbNo], 0, mbNo) OF
                         mrYes:
@@ -5120,7 +5573,8 @@ END; { InitialiseSelectedFileVariables }
 
 PROCEDURE TExplorerForm.ListViewMouseDown(Sender : TObject; Button: TMouseButton; ShiftState: TShiftState; X, Y: Integer);
 VAR
-
+  Flags : Word;
+  FS : TFileStream;
   I : Integer;
   ItemFound : Boolean;
   ListItem : TListItem;
@@ -5128,6 +5582,7 @@ VAR
   SaveIdleState : Boolean;
   SaveTempListItem : TListItem;
   TempListItem : TListItem;
+  TypeOfFile : FileType;
 
 BEGIN
   TRY
@@ -5158,6 +5613,26 @@ BEGIN
         GetHHMMSS(SelectedFile_Name, SelectedFile_NumberStr, SelectedFile_HHStr, SelectedFile_MMStr, SelectedFile_SSStr, SelectedFile_IsTextFile, SelectedFile_IsImageFile,
                   SelectedFile_IsVideoFile, OK);
 
+        { If there isn't a snaps file for this item, create one (and maybe add snaps directory too) }
+        IF FileTypeSuffixFound(SelectedFile_Name, TypeOfFile) AND (TypeOfFile = VideoFile) THEN BEGIN
+          IF NOT DirectoryExists(ListViewPathName + 'Snaps') THEN BEGIN
+            IF NOT CreateDir(ListViewPathName + 'Snaps') THEN BEGIN
+              ShowMessage('Cannot create a Snaps directory');
+              Exit;
+            END;
+          END;
+
+          IF Pos('.lnk', SelectedFile_Name) = 0 THEN BEGIN
+            IF NOT GetFileNumberSuffixFromSnapFile(SelectedFile_Name, SelectedFile_NumberStr) THEN BEGIN
+              Flags := fmOpenReadWrite;
+              IF NOT FileExists(ListViewPathName + 'Snaps\' + SelectedFile_Name + '.txt') THEN
+                Flags := Flags OR fmCreate;
+              FS := TFileStream.Create(ListViewPathName + 'Snaps\' + SelectedFile_Name + '.txt', Flags);
+              FS.Free;
+            END;
+          END;
+        END;
+
         { Store the following filename too, as we can use it later if the item is deleted, for putting the items near it back into view }
         I := 0;
         SaveTempListItem := NIL;
@@ -5165,7 +5640,7 @@ BEGIN
 
         ItemFound := False;
         { Store its location in case we wish to do a find from it }
-        WHILE (I <= ListView.Items.Count) AND NOT ItemFound DO BEGIN
+        WHILE (I < ListView.Items.Count) AND NOT ItemFound DO BEGIN
           IF Pos(SelectedFile_Name, ListView.Items[I].Caption) > 0 THEN BEGIN
             SaveItemFoundNum := I;
             ItemFound := True;
@@ -5185,7 +5660,6 @@ BEGIN
         ELSE
           IF SaveTempListItem <> NIL THEN
             NextFileName := ExtractFileName(SaveTempListItem.Caption);
-
       END;
 
 //      IF FWPMode AND (Button = mbRight) AND NOT (ssShift IN ShiftState) AND NOT (ssCtrl IN ShiftState) THEN BEGIN  { +++ }
@@ -5827,6 +6301,23 @@ END; { TreeviewNewFolderPopupClick }
 ////  Handled := Succeeded(DragSourceHelper.InitializeFromWindow(ListView.Handle, Pt, TCustomDropSource(Sender) as IDataObject));
 //END; { DropFileSourceGetDragImage }
 
+PROCEDURE TExplorerForm.MainMenuDummyBackupOnlyMenuItemClick(Sender: TObject);
+BEGIN
+  IF DoBackupMode THEN BEGIN
+    MainMenuDummyBackupOnlyMenuItem.Checked := True;
+    MainMenuFileBackupAToZMenuItem.Caption := 'Dummy Backup A-Z To ' + BackupAToZDirectory;
+    MainMenuFileBackupAToMMenuItem.Caption := 'Dummy Backup A-M To ' + BackupAToMDirectory;
+    MainMenuFileBackupNToZMenuItem.Caption := 'Dummy Backup N-Z To ' + BackupNToZDirectory;
+    DoBackupMode := False;
+  END ELSE BEGIN
+    MainMenuDummyBackupOnlyMenuItem.Checked := False;
+    MainMenuFileBackupAToZMenuItem.Caption := 'Do Backup A-Z To ' + BackupAToZDirectory;
+    MainMenuFileBackupAToMMenuItem.Caption := 'Do Backup A-M To ' + BackupAToMDirectory;
+    MainMenuFileBackupNToZMenuItem.Caption := 'Do Backup N-Z To ' + BackupNToZDirectory;
+    DoBackupMode := True;
+  END;
+END; { MainMenuDummyBackupOnlyMenuItemClick }
+
 PROCEDURE TExplorerForm.ClearSnapsCheckBoxClick(Sender: TObject);
 VAR
   OK : Boolean;
@@ -6080,11 +6571,13 @@ BEGIN
             Sender.Canvas.Brush.Color := clGreen;
           END ELSE
             IF FileTypeSuffixFound(Item.Caption, TypeOfFile) THEN
-              IF (TypeOfFile = VideoFile) AND NOT VideoFilesOnlyMode THEN
-                Sender.Canvas.Font.Style := [fsBold]
-              ELSE
-                IF (TypeOfFile = Text_File) AND NOT TextFilesOnlyMode THEN
-                  Sender.Canvas.Font.Style := [fsBold];
+              IF (TypeOfFile = VideoFile)
+              AND NOT VideoFilesOnlyMode
+              AND (Copy(Item.Caption, Length(Item.Caption) -1, 2) <> '.d')
+              AND (Copy(Item.Caption, Length(Item.Caption) -1, 2) <> '.s')
+              AND (Copy(Item.Caption, Length(Item.Caption) -3, 4) <> '.lnk')
+              THEN
+                Sender.Canvas.Font.Style := [fsBold];
   EXCEPT
     ON E : Exception DO
       ShowMessage('ListViewAdvancedCustomDrawItem: ' + E.ClassName +' error raised, with message: ' + E.Message

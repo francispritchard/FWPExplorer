@@ -167,7 +167,7 @@ object ExplorerForm: TExplorerForm
       OnClick = CompareFileSizeCheckBoxClick
     end
     object CreateSnapsCheckBox: TCheckBox
-      Left = 450
+      Left = 447
       Top = 2
       Width = 58
       Height = 22
@@ -177,7 +177,7 @@ object ExplorerForm: TExplorerForm
       OnClick = CreateSnapsCheckBoxClick
     end
     object ClearSnapsCheckBox: TCheckBox
-      Left = 521
+      Left = 518
       Top = 2
       Width = 43
       Height = 22
@@ -188,7 +188,7 @@ object ExplorerForm: TExplorerForm
       OnClick = ClearSnapsCheckBoxClick
     end
     object ControlBarSnapsPanel: TPanel
-      Left = 393
+      Left = 390
       Top = 2
       Width = 44
       Height = 22
@@ -232,7 +232,7 @@ object ExplorerForm: TExplorerForm
       OnClick = CompareSnapImagesInDifferentDirectoryCheckBoxClick
     end
     object TestCheckBox: TCheckBox
-      Left = 337
+      Left = 334
       Top = 2
       Width = 43
       Height = 22
@@ -272,7 +272,6 @@ object ExplorerForm: TExplorerForm
       OnEnter = ListViewFileNameEditEnter
       OnExit = ListViewFileNameEditExit
       OnKeyDown = ListViewFileNameEditKeyDown
-      OnKeyPress = ListViewFileNameEditKeyPress
     end
     object ListViewFileNameNumbersEdit: TEdit
       Left = 8
@@ -334,7 +333,7 @@ object ExplorerForm: TExplorerForm
     Left = 56
     Top = 88
     Bitmap = {
-      494C0101010078031C0410001000FFFFFF00FF10FFFFFFFFFFFFFFFF424D3600
+      494C010101005804900410001000FFFFFF00FF10FFFFFFFFFFFFFFFF424D3600
       0000000000003600000028000000400000001000000001002000000000000010
       000000000000000000000000000000000000FFFFFF00FFFFFF00FFFFFF00FFFF
       FF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFFFF00FFFF
@@ -577,16 +576,21 @@ object ExplorerForm: TExplorerForm
         Caption = '-'
       end
       object MainMenuFileBackupAToZMenuItem: TMenuItem
-        Caption = 'Backup A-Z'
+        Caption = 'Dummy Backup A-Z'
         OnClick = MainMenuFileBackupAToZMenuItemClick
       end
       object MainMenuFileBackupAToMMenuItem: TMenuItem
-        Caption = 'Backup A-M'
+        Caption = 'Dummy Backup A-M'
         OnClick = MainMenuFileBackupAToMMenuItemClick
       end
       object MainMenuFileBackupNToZMenuItem: TMenuItem
-        Caption = 'Backup N-Z'
+        Caption = 'Dummy Backup N-Z'
         OnClick = MainMenuFileBackupNToZMenuItemClick
+      end
+      object MainMenuDummyBackupOnlyMenuItem: TMenuItem
+        Caption = 'Dummy Backup Only'
+        Checked = True
+        OnClick = MainMenuDummyBackupOnlyMenuItemClick
       end
       object MainMenuFileSeparator2: TMenuItem
         Caption = '-'
@@ -629,7 +633,7 @@ object ExplorerForm: TExplorerForm
         Caption = 'Clear ImageView Directory'
         OnClick = MainMenuFileClearImageViewDirectoryMenuItemClick
       end
-      object N2: TMenuItem
+      object MainMenuFileSeparator5: TMenuItem
         Caption = '-'
       end
       object MainMenuFileSetUpSuffixes: TMenuItem
@@ -640,21 +644,25 @@ object ExplorerForm: TExplorerForm
         Caption = 'Reset Checked Directories List'
         OnClick = MainMenuFileResetCheckedDirectoriesListClick
       end
-      object MainMenuFileSeparator5: TMenuItem
+      object MainMenuFileSeparator6: TMenuItem
         Caption = '-'
       end
       object MainMenuFileMarkDeletedFilesOnBackupDrives: TMenuItem
         Caption = 'Mark Deleted Files On Backup Drives '
         OnClick = MainMenuFileMarkDeletedFilesOnBackupDrivesClick
       end
-      object MainMenuFileSeparator6: TMenuItem
+      object MainMenuFileSeparator7: TMenuItem
         Caption = '-'
       end
       object TidyUpSnaps: TMenuItem
         Caption = 'Tidy Up Snaps'
         OnClick = TidyUpSnapsClick
       end
-      object N1: TMenuItem
+      object RemoveDuplicateSnaps: TMenuItem
+        Caption = 'Remove Duplicate Snaps'
+        OnClick = RemoveDuplicateSnapsClick
+      end
+      object MainMenuFileSeparator8: TMenuItem
         Caption = '-'
       end
       object MainMenuFileExit: TMenuItem
